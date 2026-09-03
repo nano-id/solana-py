@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 from pairs_trading.cointegration.engine import CointegrationHit, evaluate_pair
+from pairs_trading.cointegration.fdr import apply_benjamini_hochberg, hub_involvement_summary
 from pairs_trading.cointegration.persist import save_scan_results
 from pairs_trading.data.config import DataConfig, load_config
 from pairs_trading.data.storage import ParquetStore
@@ -18,7 +19,12 @@ from pairs_trading.data.universe import load_universe_snapshot
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["CointegrationHit", "resolve_universe_symbols", "scan_pairs"]
+__all__ = [
+    "CointegrationHit",
+    "resolve_universe_symbols",
+    "scan_pairs",
+    "hub_involvement_summary",
+]
 
 
 def _parse_day(value: str) -> datetime:
@@ -151,24 +157,30 @@ def scan_pairs(
             logger.debug("Skip %s-%s: %s", y_sym, x_sym, exc)
             continue
         row = asdict(hit)
-        row["significant"] = bool(hit.pvalue < alpha)
         row["pair"] = f"{hit.y_symbol}|{hit.x_symbol}"
         rows.append(row)
 
     df = pd.DataFrame(rows)
     if not df.empty:
         df = df.sort_values("pvalue", kind="mergesort").reset_index(drop=True)
-        # Stable rank after sort (1 = strongest rejection of no-cointegration).
         df.insert(0, "rank", range(1, len(df) + 1))
+        df = apply_benjamini_hochberg(df, pvalue_col="pvalue", alpha=alpha)
+        # Rank also by FDR for convenience.
+        df = df.sort_values(["pvalue_fdr", "pvalue"], kind="mergesort").reset_index(drop=True)
+        df["rank"] = range(1, len(df) + 1)
 
-    sig = df[df["significant"]].copy() if not df.empty else df.copy()
+    sig_raw = df[df["significant_raw"]].copy() if not df.empty else df.copy()
+    sig_fdr = df[df["significant_fdr"]].copy() if not df.empty else df.copy()
+    # Primary "significant" export = FDR survivors (stricter, multiple-testing aware).
+    sig = sig_fdr
 
     logger.info(
-        "Scan complete: tested=%d skipped=%d significant=%d (α=%.3f, price_space=%s)",
+        "Scan complete: tested=%d skipped=%d raw_p<%.3f=%d fdr_p<%.3f=%d (price_space=%s)",
         tested,
         skipped,
-        len(sig),
         alpha,
+        len(sig_raw),
+        len(sig_fdr),
         config.cointegration.price_space,
     )
 
@@ -179,8 +191,10 @@ def scan_pairs(
             "n_symbols": len(frames),
             "tested_pairs": tested,
             "skipped_pairs": skipped,
-            "n_significant": int(len(sig)),
+            "n_significant_raw": int(len(sig_raw)),
+            "n_significant_fdr": int(len(sig_fdr)),
             "pvalue_threshold": alpha,
+            "fdr_method": "benjamini_hochberg",
             "min_obs": config.cointegration.min_obs,
             "price_space": config.cointegration.price_space,
         }
@@ -194,13 +208,22 @@ def scan_pairs(
             basename="scan_all",
         )
         save_scan_results(
-            sig,
+            sig_raw,
             root=config.storage.root,
             exchange_id=eid,
             timeframe=config.ohlcv.timeframe,
             mode=config.cointegration.persist_mode,
             meta=meta,
-            basename="scan_significant",
+            basename="scan_significant_raw",
+        )
+        save_scan_results(
+            sig_fdr,
+            root=config.storage.root,
+            exchange_id=eid,
+            timeframe=config.ohlcv.timeframe,
+            mode=config.cointegration.persist_mode,
+            meta=meta,
+            basename="scan_significant_fdr",
         )
 
     return df, sig
