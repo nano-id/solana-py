@@ -65,6 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_scan.add_argument("--no-persist", action="store_true", help="Do not write results")
     p_scan.add_argument("--exchange", default=None, help="Override exchange id for local parquet")
+    p_scan.add_argument(
+        "--preprocess",
+        choices=["none", "btc_residual"],
+        default=None,
+        help="Override config preprocess (btc_residual = factor-neutral residuals)",
+    )
 
     p_pair = sub.add_parser("pair", help="Test a single pair (always reports)")
     p_pair.add_argument("y", help="Dependent symbol, e.g. ETH/USDT")
@@ -126,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             exchange_id=args.exchange,
             universe_as_of=args.universe_as_of,
             persist=not args.no_persist,
+            preprocess=args.preprocess,
         )
         if df.empty:
             print("No pairs tested (empty universe or insufficient overlap).")

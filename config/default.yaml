@@ -46,3 +46,5 @@ cointegration:
   universe_as_of: auto
   # log (default): log(y) = α + β·log(x) + ε. Never use level for live signals.
   price_space: log
+  preprocess: none
+  factor_symbol: BTC/USDT

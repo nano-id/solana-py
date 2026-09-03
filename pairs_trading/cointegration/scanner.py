@@ -12,6 +12,7 @@ import pandas as pd
 
 from pairs_trading.cointegration.engine import CointegrationHit, evaluate_pair
 from pairs_trading.cointegration.fdr import apply_benjamini_hochberg, hub_involvement_summary
+from pairs_trading.cointegration.neutralize import build_factor_residual_frames
 from pairs_trading.cointegration.persist import save_scan_results
 from pairs_trading.data.config import DataConfig, load_config
 from pairs_trading.data.storage import ParquetStore
@@ -108,35 +109,64 @@ def scan_pairs(
     exchange_id: str | None = None,
     universe_as_of: str | None = None,
     persist: bool = True,
+    preprocess: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Test all unordered pairs; return (full_ranked_df, significant_df).
+    """Test all unordered pairs; return (full_ranked_df, significant_fdr_df).
 
-    Full table is sorted by p-value ascending and includes `significant`
-    (p < α). Does not drop non-hits — universe screening needs the full ranking.
+    preprocess:
+      - none: Engle-Granger on configured price_space (default log)
+      - btc_residual: residualize each coin vs factor_symbol, then EG on residuals
+        (factor symbol excluded from pairs; residuals evaluated as level series)
     """
     config = config or load_config()
     eid = resolve_exchange_id(config, exchange_id)
     store = ParquetStore(config.storage.root, eid, config.ohlcv.timeframe)
     alpha = config.cointegration.pvalue_threshold
+    preprocess = preprocess or config.cointegration.preprocess
+    factor_symbol = config.cointegration.factor_symbol
 
     universe, universe_reason = resolve_universe_symbols(
         config, store, symbols=symbols, universe_as_of=universe_as_of
     )
+    # Residual mode needs the factor series even if it is outside the snapshot list.
+    load_syms = list(universe)
+    if preprocess == "btc_residual" and factor_symbol not in load_syms:
+        load_syms.append(factor_symbol)
+
     logger.info(
-        "Cointegration scan on %s (%s, price_space=%s) — %d symbols via %s",
+        "Cointegration scan on %s (%s, price_space=%s, preprocess=%s) — %d symbols via %s",
         eid,
         config.ohlcv.timeframe,
         config.cointegration.price_space,
+        preprocess,
         len(universe),
         universe_reason,
     )
 
     frames: dict[str, pd.DataFrame] = {}
-    for sym in universe:
+    for sym in load_syms:
         try:
             frames[sym] = load_symbol_frame(store, sym)
         except FileNotFoundError:
             logger.warning("Skipping %s — no local OHLCV", sym)
+
+    eval_price_space = config.cointegration.price_space
+    factor_meta: dict[str, dict[str, float | int]] = {}
+    if preprocess == "btc_residual":
+        frames, factor_meta = build_factor_residual_frames(
+            frames,
+            factor_symbol=factor_symbol,
+            min_obs=config.cointegration.min_obs,
+        )
+        # Residuals are already log-space innovations — do not log again.
+        eval_price_space = "level"
+        logger.info(
+            "Factor-neutral frames ready: %d symbols (excluded factor %s)",
+            len(frames),
+            factor_symbol,
+        )
+    elif preprocess != "none":
+        raise ValueError(f"Unknown preprocess={preprocess!r}")
 
     rows: list[dict] = []
     tested = 0
@@ -150,7 +180,7 @@ def scan_pairs(
                 frames[y_sym],
                 frames[x_sym],
                 min_obs=config.cointegration.min_obs,
-                price_space=config.cointegration.price_space,
+                price_space=eval_price_space,
             )
         except ValueError as exc:
             skipped += 1
@@ -158,6 +188,12 @@ def scan_pairs(
             continue
         row = asdict(hit)
         row["pair"] = f"{hit.y_symbol}|{hit.x_symbol}"
+        row["preprocess"] = preprocess
+        row["eval_price_space"] = eval_price_space
+        # Surface configured intent distinctly from internal eval transform.
+        row["price_space"] = (
+            "btc_residual" if preprocess == "btc_residual" else hit.price_space
+        )
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -165,25 +201,25 @@ def scan_pairs(
         df = df.sort_values("pvalue", kind="mergesort").reset_index(drop=True)
         df.insert(0, "rank", range(1, len(df) + 1))
         df = apply_benjamini_hochberg(df, pvalue_col="pvalue", alpha=alpha)
-        # Rank also by FDR for convenience.
         df = df.sort_values(["pvalue_fdr", "pvalue"], kind="mergesort").reset_index(drop=True)
         df["rank"] = range(1, len(df) + 1)
 
     sig_raw = df[df["significant_raw"]].copy() if not df.empty else df.copy()
     sig_fdr = df[df["significant_fdr"]].copy() if not df.empty else df.copy()
-    # Primary "significant" export = FDR survivors (stricter, multiple-testing aware).
     sig = sig_fdr
 
     logger.info(
-        "Scan complete: tested=%d skipped=%d raw_p<%.3f=%d fdr_p<%.3f=%d (price_space=%s)",
+        "Scan complete: tested=%d skipped=%d raw_p<%.3f=%d fdr_p<%.3f=%d "
+        "(preprocess=%s)",
         tested,
         skipped,
         alpha,
         len(sig_raw),
         len(sig_fdr),
-        config.cointegration.price_space,
+        preprocess,
     )
 
+    basename_suffix = "residual" if preprocess == "btc_residual" else "log"
     if persist:
         meta = {
             "universe_reason": universe_reason,
@@ -197,6 +233,9 @@ def scan_pairs(
             "fdr_method": "benjamini_hochberg",
             "min_obs": config.cointegration.min_obs,
             "price_space": config.cointegration.price_space,
+            "preprocess": preprocess,
+            "factor_symbol": factor_symbol if preprocess == "btc_residual" else None,
+            "factor_betas": factor_meta if preprocess == "btc_residual" else None,
         }
         save_scan_results(
             df,
@@ -205,7 +244,7 @@ def scan_pairs(
             timeframe=config.ohlcv.timeframe,
             mode=config.cointegration.persist_mode,
             meta=meta,
-            basename="scan_all",
+            basename=f"scan_all_{basename_suffix}",
         )
         save_scan_results(
             sig_raw,
@@ -214,7 +253,7 @@ def scan_pairs(
             timeframe=config.ohlcv.timeframe,
             mode=config.cointegration.persist_mode,
             meta=meta,
-            basename="scan_significant_raw",
+            basename=f"scan_significant_raw_{basename_suffix}",
         )
         save_scan_results(
             sig_fdr,
@@ -223,7 +262,7 @@ def scan_pairs(
             timeframe=config.ohlcv.timeframe,
             mode=config.cointegration.persist_mode,
             meta=meta,
-            basename="scan_significant_fdr",
+            basename=f"scan_significant_fdr_{basename_suffix}",
         )
 
     return df, sig

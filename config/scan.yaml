@@ -41,3 +41,6 @@ cointegration:
   persist_mode: both
   universe_as_of: auto
   price_space: log
+  # none | btc_residual (factor-neutral: residualize vs BTC first)
+  preprocess: none
+  factor_symbol: BTC/USDT

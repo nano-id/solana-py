@@ -76,8 +76,12 @@ class CointegrationConfig(BaseModel):
     # or "auto" = earliest overlapping bar date across the series.
     universe_as_of: str = "auto"
     # log => log(y)=α+β·log(x)+ε (default, pairs-trading standard).
-    # level => raw prices (only for diagnostics; do not use for Phase 3 signals).
+    # level => raw prices (only for diagnostics; do not use for live signals).
     price_space: Literal["log", "level"] = "log"
+    # none => use price_space directly.
+    # btc_residual => residualize each coin's log-price vs factor, then EG on residuals.
+    preprocess: Literal["none", "btc_residual"] = "none"
+    factor_symbol: str = "BTC/USDT"
 
 
 class DataConfig(BaseModel):
