@@ -26,6 +26,12 @@ def test_create_okx_spot():
     assert ex.options.get("defaultType") == "spot"
 
 
+def test_create_exchange_id_override():
+    cfg = ExchangeConfig(id="binance", market_type="spot")
+    ex = create_exchange(cfg, exchange_id="okx")
+    assert ex.id == "okx"
+
+
 def test_unsupported_exchange():
     with pytest.raises(ValueError, match="Unsupported"):
         create_exchange(ExchangeConfig(id="kraken"))

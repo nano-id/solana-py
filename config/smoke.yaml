@@ -1,5 +1,8 @@
 exchange:
-  id: okx
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
   sandbox: false
   enable_rate_limit: true
   quote: USDT
@@ -21,9 +24,16 @@ universe:
     - STETH
 
 ohlcv:
-  timeframe: 1h
-  lookback_days: 7
-  limit_per_request: 1000
+  # Daily bars are more appropriate for EG cointegration smoke checks.
+  timeframe: 1d
+  lookback_days: 365
+  limit_per_request: 300
 
 storage:
   root: data
+
+cointegration:
+  pvalue_threshold: 0.05
+  min_obs: 100
+  persist_mode: both
+  universe_as_of: auto

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pairs_trading.data.config import DataConfig, load_config
-from pairs_trading.data.exchange import create_exchange
+from pairs_trading.data.exchange import connect_with_fallback
 from pairs_trading.data.fetcher import fetch_ohlcv_range, lookback_start_ms, timeframe_to_milliseconds
 from pairs_trading.data.storage import ParquetStore
 from pairs_trading.data.universe import (
@@ -28,6 +28,7 @@ class SymbolSyncResult:
     path: str
     since_ms: int
     until_ms: int
+    exchange_id: str
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class PipelineResult:
     universe: UniverseSnapshot | None
     universe_path: str | None
     synced: list[SymbolSyncResult]
+    exchange_id: str
 
 
 class DataPipeline:
@@ -42,11 +44,20 @@ class DataPipeline:
 
     def __init__(self, config: DataConfig | None = None) -> None:
         self.config = config or load_config()
-        self.exchange = create_exchange(self.config.exchange)
+        connected = connect_with_fallback(self.config.exchange)
+        self.exchange = connected.exchange
+        self.exchange_id = connected.exchange_id
+        # Persist under the venue that actually answered (may be a fallback).
+        self.config.exchange.id = self.exchange_id
         self.store = ParquetStore(
             root=self.config.storage.root,
-            exchange_id=self.config.exchange.id,
+            exchange_id=self.exchange_id,
             timeframe=self.config.ohlcv.timeframe,
+        )
+        logger.info(
+            "DataPipeline ready — serving from '%s' (tried %s)",
+            self.exchange_id,
+            " → ".join(connected.attempted),
         )
 
     def snapshot_universe(self, *, as_of: datetime | None = None) -> tuple[UniverseSnapshot, Path]:
@@ -57,11 +68,12 @@ class DataPipeline:
             self.config.universe,
             as_of=as_of,
         )
-        path = universe_snapshot_path(self.config.storage.root, self.config.exchange.id, as_of)
+        path = universe_snapshot_path(self.config.storage.root, self.exchange_id, as_of)
         save_universe_snapshot(snapshot, path)
         logger.info(
-            "Universe snapshot %s: %d symbols -> %s",
+            "Universe snapshot %s via %s: %d symbols -> %s",
             snapshot.as_of,
+            self.exchange_id,
             len(snapshot.members),
             path,
         )
@@ -100,7 +112,8 @@ class DataPipeline:
         merged = self.store.upsert(symbol, df)
         path = self.store.path_for(symbol)
         logger.info(
-            "%s: upserted %d new rows, total %d -> %s",
+            "[%s] %s: upserted %d new rows, total %d -> %s",
+            self.exchange_id,
             symbol,
             len(df),
             len(merged),
@@ -112,6 +125,7 @@ class DataPipeline:
             path=str(path),
             since_ms=since_ms,
             until_ms=until_ms,
+            exchange_id=self.exchange_id,
         )
 
     def run(
@@ -144,4 +158,5 @@ class DataPipeline:
             universe=snapshot,
             universe_path=str(universe_path) if universe_path else None,
             synced=synced,
+            exchange_id=self.exchange_id,
         )

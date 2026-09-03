@@ -2,22 +2,20 @@
 # MUST NOT live here — they come from walk-forward validation later.
 
 exchange:
-  # binance | bybit | okx  (okx is a geo-fallback when binance/bybit block the IP)
+  # Primary venue (config-driven; never hard-coded in call sites).
   id: binance
-  # Public market data only for Phase 1; keys optional for private endpoints.
+  # Tried in order after `id` on geo/availability failures (403/451/etc.).
+  fallbacks:
+    - bybit
+    - okx
   sandbox: false
   enable_rate_limit: true
-  # Default quote for USDT-margined spot pairs.
   quote: USDT
-  # Prefer perpetual swaps when available for easier long/short later.
   market_type: spot  # spot | swap
 
 universe:
-  # Top N symbols by 24h quote volume at selection time.
   top_n: 30
-  # Minimum 24h quote volume (USDT) to enter the universe.
   min_quote_volume: 5_000_000
-  # Stablecoins / wrappers excluded from pairs candidates.
   exclude_bases:
     - USDT
     - USDC
@@ -33,12 +31,16 @@ universe:
 
 ohlcv:
   timeframe: 1h
-  # How far back to fetch on a cold start (ISO-8601 duration-ish days).
   lookback_days: 365
-  # Max candles per request; CCXT/exchange may cap lower.
   limit_per_request: 1000
 
 storage:
   root: data
-  # Layout: {root}/{exchange}/{timeframe}/{symbol}.parquet
-  # Universe snapshots: {root}/{exchange}/universe/{as_of_date}.json
+
+cointegration:
+  pvalue_threshold: 0.05
+  min_obs: 100
+  # dated | latest | both
+  persist_mode: both
+  # Point-in-time universe: YYYY-MM-DD or "auto" (oldest snapshot on disk)
+  universe_as_of: auto
