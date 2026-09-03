@@ -1,0 +1,29 @@
+exchange:
+  id: okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: spot
+
+universe:
+  top_n: 5
+  min_quote_volume: 5_000_000
+  exclude_bases:
+    - USDT
+    - USDC
+    - BUSD
+    - DAI
+    - TUSD
+    - FDUSD
+    - USDE
+    - WBTC
+    - WETH
+    - STETH
+
+ohlcv:
+  timeframe: 1h
+  lookback_days: 7
+  limit_per_request: 1000
+
+storage:
+  root: data
