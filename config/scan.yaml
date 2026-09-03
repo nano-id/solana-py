@@ -1,0 +1,43 @@
+# Universe-wide cointegration screen (daily, log prices).
+# Note: today's liquid top-N is used; true historical PIT needs dated snapshots over time.
+
+exchange:
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: spot
+
+universe:
+  top_n: 25
+  min_quote_volume: 5_000_000
+  exclude_bases:
+    - USDT
+    - USDC
+    - BUSD
+    - DAI
+    - TUSD
+    - FDUSD
+    - USDE
+    - USD1
+    - WBTC
+    - WETH
+    - STETH
+
+ohlcv:
+  timeframe: 1d
+  lookback_days: 1000
+  limit_per_request: 300
+
+storage:
+  root: data
+
+cointegration:
+  pvalue_threshold: 0.05
+  min_obs: 180
+  persist_mode: both
+  universe_as_of: auto
+  price_space: log

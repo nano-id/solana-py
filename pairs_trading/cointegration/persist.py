@@ -23,8 +23,12 @@ def save_scan_results(
     mode: Literal["dated", "latest", "both"] = "both",
     meta: dict[str, Any] | None = None,
     as_of: datetime | None = None,
+    basename: str = "scan",
 ) -> dict[str, Path]:
-    """Write results parquet (+ meta json). Returns written paths."""
+    """Write results parquet (+ meta json). Returns written paths.
+
+    Filenames: `{basename}_{date}_{tf}.parquet` and/or `{basename}_latest_{tf}.parquet`.
+    """
     as_of = as_of or datetime.now(timezone.utc)
     base = scan_output_dir(root, exchange_id)
     base.mkdir(parents=True, exist_ok=True)
@@ -34,15 +38,16 @@ def save_scan_results(
 
     targets: list[tuple[str, Path]] = []
     if mode in ("dated", "both"):
-        targets.append(("dated", base / f"scan_{stamp}_{timeframe}.parquet"))
+        targets.append(("dated", base / f"{basename}_{stamp}_{timeframe}.parquet"))
     if mode in ("latest", "both"):
-        targets.append(("latest", base / f"scan_latest_{timeframe}.parquet"))
+        targets.append(("latest", base / f"{basename}_latest_{timeframe}.parquet"))
 
     payload_meta = {
         "as_of": as_of.astimezone(timezone.utc).isoformat(),
         "exchange_id": exchange_id,
         "timeframe": timeframe,
-        "n_hits": int(len(df)),
+        "basename": basename,
+        "n_rows": int(len(df)),
         **(meta or {}),
     }
 
@@ -50,7 +55,11 @@ def save_scan_results(
         df.to_parquet(path, index=False)
         meta_path = path.with_suffix(".meta.json")
         meta_path.write_text(json.dumps(payload_meta, indent=2), encoding="utf-8")
+        # Also write a human-readable CSV next to parquet for quick review.
+        csv_path = path.with_suffix(".csv")
+        df.to_csv(csv_path, index=False)
         written[label] = path
         written[f"{label}_meta"] = meta_path
+        written[f"{label}_csv"] = csv_path
 
     return written

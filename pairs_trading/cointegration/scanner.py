@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pairs_trading.cointegration.engine import CointegrationHit, engle_granger_pair
+from pairs_trading.cointegration.engine import CointegrationHit, evaluate_pair
 from pairs_trading.cointegration.persist import save_scan_results
 from pairs_trading.data.config import DataConfig, load_config
 from pairs_trading.data.storage import ParquetStore
@@ -18,7 +18,7 @@ from pairs_trading.data.universe import load_universe_snapshot
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["CointegrationHit", "resolve_universe_symbols", "scan_pairs", "engle_granger_pair"]
+__all__ = ["CointegrationHit", "resolve_universe_symbols", "scan_pairs"]
 
 
 def _parse_day(value: str) -> datetime:
@@ -32,6 +32,21 @@ def list_universe_snapshot_paths(root: Path, exchange_id: str) -> list[Path]:
     return sorted(folder.glob("*.json"))
 
 
+def resolve_exchange_id(config: DataConfig, exchange_id: str | None = None) -> str:
+    """Prefer explicit id; else first candidate that has a universe snapshot or OHLCV."""
+    if exchange_id:
+        return exchange_id
+    root = Path(config.storage.root)
+    for eid in config.exchange.candidate_ids():
+        uni = root / eid / "universe"
+        ohlcv = root / eid / config.ohlcv.timeframe
+        if uni.is_dir() and any(uni.glob("*.json")):
+            return eid
+        if ohlcv.is_dir() and any(ohlcv.glob("*.parquet")):
+            return eid
+    return config.exchange.id
+
+
 def resolve_universe_symbols(
     config: DataConfig,
     store: ParquetStore,
@@ -39,14 +54,7 @@ def resolve_universe_symbols(
     symbols: list[str] | None = None,
     universe_as_of: str | None = None,
 ) -> tuple[list[str], str]:
-    """Pick symbols without survivorship leakage.
-
-    - If `symbols` given: use them (caller responsibility).
-    - Else load the universe snapshot on/before `universe_as_of`.
-    - `universe_as_of="auto"`: use the earliest snapshot on disk whose date is
-      <= the earliest common bar date across stored series; if no snapshots,
-      fall back to symbols present in the parquet store (logged as weak PIT).
-    """
+    """Pick symbols without survivorship leakage when snapshots exist."""
     as_of = universe_as_of or config.cointegration.universe_as_of
 
     if symbols is not None:
@@ -54,22 +62,17 @@ def resolve_universe_symbols(
 
     snapshots = list_universe_snapshot_paths(config.storage.root, store.exchange_id)
     if not snapshots:
-        stored = store.list_symbols()
-        # Filenames are sanitized; cannot reliably reverse to CCXT symbols.
-        logger.warning(
-            "No universe snapshots found — cannot enforce point-in-time universe. "
-            "Pass --symbols or run pairs-data universe first. Stored files: %s",
-            stored,
-        )
         raise FileNotFoundError(
-            f"No universe snapshots under {config.storage.root / store.exchange_id / 'universe'}"
+            f"No universe snapshots under "
+            f"{config.storage.root / store.exchange_id / 'universe'}. "
+            "Run: pairs-data universe  (or pairs-data sync)"
         )
 
     if as_of == "auto":
-        # Prefer the oldest snapshot (closest to sample start) to avoid using
-        # today's ranking for a historical window.
-        path = snapshots[0]
-        reason = f"auto:oldest_snapshot:{path.stem}"
+        # Newest snapshot = current liquid set for a live scan.
+        # (True historical PIT needs dated snapshots taken over time.)
+        path = snapshots[-1]
+        reason = f"auto:latest_snapshot:{path.stem}"
     else:
         target = _parse_day(as_of)
         eligible = [p for p in snapshots if _parse_day(p.stem) <= target]
@@ -82,7 +85,7 @@ def resolve_universe_symbols(
         reason = f"as_of:{as_of}:using:{path.stem}"
 
     snap = load_universe_snapshot(path)
-    return snap.symbols, reason
+    return list(snap.symbols), reason
 
 
 def load_symbol_frame(store: ParquetStore, symbol: str) -> pd.DataFrame:
@@ -99,24 +102,29 @@ def scan_pairs(
     exchange_id: str | None = None,
     universe_as_of: str | None = None,
     persist: bool = True,
-) -> tuple[pd.DataFrame, list[CointegrationHit]]:
-    """Test all unordered pairs in the PIT universe; return hits DataFrame."""
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Test all unordered pairs; return (full_ranked_df, significant_df).
+
+    Full table is sorted by p-value ascending and includes `significant`
+    (p < α). Does not drop non-hits — universe screening needs the full ranking.
+    """
     config = config or load_config()
-    eid = exchange_id or config.exchange.id
+    eid = resolve_exchange_id(config, exchange_id)
     store = ParquetStore(config.storage.root, eid, config.ohlcv.timeframe)
+    alpha = config.cointegration.pvalue_threshold
 
     universe, universe_reason = resolve_universe_symbols(
         config, store, symbols=symbols, universe_as_of=universe_as_of
     )
     logger.info(
-        "Cointegration scan on %s (%s) — %d symbols via %s",
+        "Cointegration scan on %s (%s, price_space=%s) — %d symbols via %s",
         eid,
         config.ohlcv.timeframe,
+        config.cointegration.price_space,
         len(universe),
         universe_reason,
     )
 
-    # Preload
     frames: dict[str, pd.DataFrame] = {}
     for sym in universe:
         try:
@@ -124,53 +132,75 @@ def scan_pairs(
         except FileNotFoundError:
             logger.warning("Skipping %s — no local OHLCV", sym)
 
-    hits: list[CointegrationHit] = []
+    rows: list[dict] = []
     tested = 0
+    skipped = 0
     for y_sym, x_sym in itertools.combinations(sorted(frames.keys()), 2):
         tested += 1
         try:
-            hit = engle_granger_pair(
+            hit = evaluate_pair(
                 y_sym,
                 x_sym,
                 frames[y_sym],
                 frames[x_sym],
-                pvalue_threshold=config.cointegration.pvalue_threshold,
                 min_obs=config.cointegration.min_obs,
                 price_space=config.cointegration.price_space,
             )
         except ValueError as exc:
+            skipped += 1
             logger.debug("Skip %s-%s: %s", y_sym, x_sym, exc)
             continue
-        if hit is not None:
-            hits.append(hit)
+        row = asdict(hit)
+        row["significant"] = bool(hit.pvalue < alpha)
+        row["pair"] = f"{hit.y_symbol}|{hit.x_symbol}"
+        rows.append(row)
 
-    rows = [asdict(h) for h in hits]
     df = pd.DataFrame(rows)
     if not df.empty:
-        df = df.sort_values("pvalue").reset_index(drop=True)
+        df = df.sort_values("pvalue", kind="mergesort").reset_index(drop=True)
+        # Stable rank after sort (1 = strongest rejection of no-cointegration).
+        df.insert(0, "rank", range(1, len(df) + 1))
+
+    sig = df[df["significant"]].copy() if not df.empty else df.copy()
 
     logger.info(
-        "Scan complete: tested=%d hits=%d (α=%.3f)",
+        "Scan complete: tested=%d skipped=%d significant=%d (α=%.3f, price_space=%s)",
         tested,
-        len(hits),
-        config.cointegration.pvalue_threshold,
+        skipped,
+        len(sig),
+        alpha,
+        config.cointegration.price_space,
     )
 
     if persist:
+        meta = {
+            "universe_reason": universe_reason,
+            "symbols": list(frames.keys()),
+            "n_symbols": len(frames),
+            "tested_pairs": tested,
+            "skipped_pairs": skipped,
+            "n_significant": int(len(sig)),
+            "pvalue_threshold": alpha,
+            "min_obs": config.cointegration.min_obs,
+            "price_space": config.cointegration.price_space,
+        }
         save_scan_results(
             df,
             root=config.storage.root,
             exchange_id=eid,
             timeframe=config.ohlcv.timeframe,
             mode=config.cointegration.persist_mode,
-            meta={
-                "universe_reason": universe_reason,
-                "symbols": list(frames.keys()),
-                "tested_pairs": tested,
-                "pvalue_threshold": config.cointegration.pvalue_threshold,
-                "min_obs": config.cointegration.min_obs,
-                "price_space": config.cointegration.price_space,
-            },
+            meta=meta,
+            basename="scan_all",
+        )
+        save_scan_results(
+            sig,
+            root=config.storage.root,
+            exchange_id=eid,
+            timeframe=config.ohlcv.timeframe,
+            mode=config.cointegration.persist_mode,
+            meta=meta,
+            basename="scan_significant",
         )
 
-    return df, hits
+    return df, sig

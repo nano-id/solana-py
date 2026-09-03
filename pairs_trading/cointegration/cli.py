@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config(args.config)
 
     if args.command == "scan":
-        df, hits = scan_pairs(
+        df, sig = scan_pairs(
             config,
             symbols=args.symbols,
             exchange_id=args.exchange,
@@ -100,19 +100,26 @@ def main(argv: list[str] | None = None) -> int:
             persist=not args.no_persist,
         )
         if df.empty:
-            print("No cointegrated pairs found.")
+            print("No pairs tested (empty universe or insufficient overlap).")
             return 0
         cols = [
+            "rank",
             "y_symbol",
             "x_symbol",
             "pvalue",
-            "test_statistic",
+            "significant",
             "hedge_ratio",
             "half_life",
             "n_obs",
+            "price_space",
         ]
+        cols = [c for c in cols if c in df.columns]
+        print("=== ALL PAIRS (sorted by p-value) ===")
         print(df[cols].to_string(index=False))
-        print(f"\n{len(hits)} hits")
+        print(f"\nTested: {len(df)}  |  significant p<{config.cointegration.pvalue_threshold}: {len(sig)}")
+        if not sig.empty:
+            print("\n=== SIGNIFICANT ===")
+            print(sig[cols].to_string(index=False))
         return 0
 
     if args.command == "pair":
