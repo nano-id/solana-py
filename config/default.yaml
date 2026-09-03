@@ -44,3 +44,5 @@ cointegration:
   persist_mode: both
   # Point-in-time universe: YYYY-MM-DD or "auto" (oldest snapshot on disk)
   universe_as_of: auto
+  # log (default): log(y) = α + β·log(x) + ε. Never use level for live signals.
+  price_space: log

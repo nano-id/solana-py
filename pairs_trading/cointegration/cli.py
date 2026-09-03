@@ -136,8 +136,10 @@ def main(argv: list[str] | None = None) -> int:
             y_df,
             x_df,
             min_obs=config.cointegration.min_obs,
+            price_space=config.cointegration.price_space,
         )
         print(f"exchange={eid}")
+        print(f"price_space={hit.price_space}")
         print(f"pair={hit.y_symbol} ~ {hit.x_symbol}")
         print(f"n_obs={hit.n_obs}")
         print(f"pvalue={hit.pvalue:.6f}")

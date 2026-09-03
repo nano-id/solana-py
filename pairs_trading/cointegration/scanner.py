@@ -136,6 +136,7 @@ def scan_pairs(
                 frames[x_sym],
                 pvalue_threshold=config.cointegration.pvalue_threshold,
                 min_obs=config.cointegration.min_obs,
+                price_space=config.cointegration.price_space,
             )
         except ValueError as exc:
             logger.debug("Skip %s-%s: %s", y_sym, x_sym, exc)
@@ -168,6 +169,7 @@ def scan_pairs(
                 "tested_pairs": tested,
                 "pvalue_threshold": config.cointegration.pvalue_threshold,
                 "min_obs": config.cointegration.min_obs,
+                "price_space": config.cointegration.price_space,
             },
         )
 

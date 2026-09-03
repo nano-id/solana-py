@@ -24,9 +24,10 @@ universe:
     - STETH
 
 ohlcv:
-  # Daily bars are more appropriate for EG cointegration smoke checks.
+  # Daily bars for EG cointegration checks.
   timeframe: 1d
-  lookback_days: 365
+  # Prefer ≥2y when the venue allows; still subject to exchange history caps.
+  lookback_days: 1000
   limit_per_request: 300
 
 storage:
@@ -37,3 +38,4 @@ cointegration:
   min_obs: 100
   persist_mode: both
   universe_as_of: auto
+  price_space: log

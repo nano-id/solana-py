@@ -75,6 +75,9 @@ class CointegrationConfig(BaseModel):
     # Point-in-time universe: use snapshot dated on/before this (YYYY-MM-DD),
     # or "auto" = earliest overlapping bar date across the series.
     universe_as_of: str = "auto"
+    # log => log(y)=α+β·log(x)+ε (default, pairs-trading standard).
+    # level => raw prices (only for diagnostics; do not use for Phase 3 signals).
+    price_space: Literal["log", "level"] = "log"
 
 
 class DataConfig(BaseModel):
