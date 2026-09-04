@@ -217,6 +217,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_wld.add_argument("--no-persist", action="store_true")
 
+    p_bnb = sub.add_parser(
+        "bnb-survivor-hub",
+        help="BNB|BTC/UNI survivor windows: placebo dual-null+BY + residual corr",
+    )
+    p_bnb.add_argument("--exchange", default=None)
+    p_bnb.add_argument("--mc-sims", type=int, default=1500)
+    p_bnb.add_argument("--seed", type=int, default=42)
+    p_bnb.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -894,6 +903,61 @@ def main(argv: list[str] | None = None) -> int:
         corr = corr_report["corr"]
         print("\n=== OKB-WLD / ADA-WLD / ARB-WLD RESIDUAL CORR ===")
         off = corr[corr["pair_a"] < corr["pair_b"]]  # unique unordered pairs
+        print(off.to_string(index=False))
+        return 0
+
+    if args.command == "bnb-survivor-hub":
+        import json
+
+        from pairs_trading.cointegration.bnb_survivor_hub import (
+            correlate_bnb_survivor_residuals,
+            hub_placebo_dual_null_fixed_windows,
+        )
+
+        df, _placebo, summary = hub_placebo_dual_null_fixed_windows(
+            config,
+            exchange_id=args.exchange,
+            n_sims=args.mc_sims,
+            seed=args.seed,
+            persist=not args.no_persist,
+        )
+        print("=== BNB SURVIVOR WINDOWS — PLACEBO DUAL-NULL + BY ===")
+        print(json.dumps(summary, indent=2, default=str))
+        cols = [
+            c
+            for c in [
+                "window_label",
+                "window_start",
+                "window_end",
+                "kind",
+                "pair",
+                "pvalue_table",
+                "pvalue_mc",
+                "pvalue_bb",
+                "p_ratio_bb_over_rw",
+                "significant_raw",
+                "pvalue_bb_by_window",
+                "significant_bb_by_window",
+                "pvalue_bb_by_pooled",
+                "significant_bb_by_pooled",
+            ]
+            if c in df.columns
+        ]
+        print("\n--- all rows ---")
+        print(df[cols].to_string(index=False))
+        placebos = df[df["kind"] == "placebo"]
+        print(
+            f"\nPlacebo: raw hits {int(placebos['significant_raw'].sum())}/"
+            f"{len(placebos)}  |  p_bb<0.05 {int((placebos['pvalue_bb']<0.05).sum())}  |  "
+            f"BY-window sig {int(placebos['significant_bb_by_window'].fillna(False).sum())}  |  "
+            f"BY-pooled sig {int(placebos['significant_bb_by_pooled'].fillna(False).sum())}"
+        )
+
+        corr = correlate_bnb_survivor_residuals(
+            config, exchange_id=args.exchange, persist=not args.no_persist
+        )
+        print("\n=== BNB-BTC vs BNB-UNI RESIDUAL CORR ===")
+        off = corr[corr["pair_a"] < corr["pair_b"]]
         print(off.to_string(index=False))
         return 0
 
