@@ -28,6 +28,7 @@ dev = [
 [project.scripts]
 pairs-data = "pairs_trading.data.cli:main"
 pairs-coint = "pairs_trading.cointegration.cli:main"
+pairs-funding = "pairs_trading.funding.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

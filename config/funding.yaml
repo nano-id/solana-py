@@ -1,0 +1,35 @@
+# Module 1 — perpetual funding-rate harvest (delta-neutral).
+# market_type is forced to swap in code even if omitted.
+
+exchange:
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: swap
+
+storage:
+  root: data
+
+funding:
+  lookback_days: 90
+  limit_per_request: 100
+  settlements_per_day: 3.0
+  min_abs_rate: 0.00001
+  persist_mode: both
+  default_symbols:
+    - BTC/USDT:USDT
+    - ETH/USDT:USDT
+    - SOL/USDT:USDT
+    - XRP/USDT:USDT
+    - DOGE/USDT:USDT
+    - LTC/USDT:USDT
+    - ADA/USDT:USDT
+    - LINK/USDT:USDT
+
+ohlcv:
+  timeframe: 1h
+  lookback_days: 90
