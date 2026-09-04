@@ -102,6 +102,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional existing scan_all parquet to summarize hub hit-rate",
     )
 
+    p_roll = sub.add_parser("rolling", help="Rolling-window EG+FDR screen")
+    p_roll.add_argument("--window-days", type=int, default=180)
+    p_roll.add_argument("--step-days", type=int, default=90)
+    p_roll.add_argument("--exchange", default=None)
+    p_roll.add_argument("--symbols", nargs="+", default=None)
+    p_roll.add_argument(
+        "--preprocess",
+        choices=["none", "btc_residual"],
+        default="none",
+    )
+    p_roll.add_argument("--no-persist", action="store_true")
+
+    p_joh = sub.add_parser("johansen", help="Johansen multivariate basket screen")
+    p_joh.add_argument(
+        "--symbols",
+        nargs="+",
+        default=None,
+        help="Candidate symbols (default: BNB OKB SOL UNI ARB WLD)",
+    )
+    p_joh.add_argument("--sizes", nargs="+", type=int, default=[3, 4])
+    p_joh.add_argument("--exchange", default=None)
+    p_joh.add_argument("--no-persist", action="store_true")
+
+    p_sig = sub.add_parser("signal-demo", help="Phase 3 skeleton on synthetic OU spread")
+    p_sig.add_argument("--n", type=int, default=2000)
+    p_sig.add_argument("--seed", type=int, default=42)
+    p_sig.add_argument("--entry-z", type=float, default=2.0)
+    p_sig.add_argument("--exit-z", type=float, default=0.5)
+    p_sig.add_argument("--stop-z", type=float, default=4.0)
+
     return parser
 
 
@@ -295,6 +325,97 @@ def main(argv: list[str] | None = None) -> int:
             summary = summarize_hub_from_scan(scan_df, hub_symbol=args.hub)
             print("\n=== HUB HIT-RATE ON UNIVERSE SCAN ===")
             print(json.dumps(summary, indent=2))
+        return 0
+
+    if args.command == "rolling":
+        from pairs_trading.cointegration.rolling import scan_rolling_windows, summarize_rolling
+
+        df = scan_rolling_windows(
+            config,
+            window_days=args.window_days,
+            step_days=args.step_days,
+            exchange_id=args.exchange,
+            symbols=args.symbols,
+            preprocess=args.preprocess,
+            persist=not args.no_persist,
+        )
+        if df.empty:
+            print("No rolling results.")
+            return 1
+        summary = summarize_rolling(df)
+        print("=== ROLLING WINDOW SUMMARY ===")
+        print(summary.to_string(index=False))
+        fdr_hits = df[df["significant_fdr"]]
+        print(
+            f"\nWindows: {summary.shape[0]}  |  "
+            f"total FDR hits (row-level): {len(fdr_hits)}  |  "
+            f"windows with ≥1 FDR hit: {int((summary['n_fdr'] > 0).sum())}"
+        )
+        if not fdr_hits.empty:
+            cols = [
+                c
+                for c in [
+                    "window_start",
+                    "window_end",
+                    "y_symbol",
+                    "x_symbol",
+                    "pvalue",
+                    "pvalue_fdr",
+                    "hedge_ratio",
+                    "half_life",
+                ]
+                if c in fdr_hits.columns
+            ]
+            print("\n=== FDR SURVIVORS BY WINDOW ===")
+            print(fdr_hits[cols].to_string(index=False))
+        else:
+            print("\n=== FDR SURVIVORS BY WINDOW ===\n(none)")
+        return 0
+
+    if args.command == "johansen":
+        from pairs_trading.cointegration.johansen import scan_johansen_baskets
+
+        df = scan_johansen_baskets(
+            config,
+            candidates=args.symbols,
+            sizes=tuple(args.sizes),
+            exchange_id=args.exchange,
+            persist=not args.no_persist,
+        )
+        if df.empty:
+            print("No Johansen results.")
+            return 1
+        cols = [
+            c
+            for c in [
+                "symbols",
+                "n_symbols",
+                "n_obs",
+                "n_coint_relations_95",
+                "has_coint_95",
+                "trace_r0",
+                "cv95_r0",
+            ]
+            if c in df.columns
+        ]
+        print("=== JOHANSEN BASKETS ===")
+        print(df[cols].to_string(index=False))
+        n_hit = int(df["has_coint_95"].sum())
+        print(f"\nBaskets tested: {len(df)}  |  with ≥1 coint relation @95%: {n_hit}")
+        return 0
+
+    if args.command == "signal-demo":
+        from pairs_trading.signal import SignalConfig, generate_signals, simulate_ou_spread, summarize_signals
+
+        spread = simulate_ou_spread(n=args.n, seed=args.seed)
+        cfg = SignalConfig(entry_z=args.entry_z, exit_z=args.exit_z, stop_z=args.stop_z)
+        frame, events = generate_signals(spread, cfg)
+        summary = summarize_signals(frame, events)
+        print("=== SYNTHETIC OU SIGNAL DEMO ===")
+        print(json.dumps(summary, indent=2))
+        print("\nFirst 10 events:")
+        for e in events[:10]:
+            print(f"  bar={e.bar} z={e.z:.3f} reason={e.reason} side={e.side.value}")
         return 0
 
     build_parser().error(f"Unknown command: {args.command}")
