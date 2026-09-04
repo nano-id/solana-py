@@ -226,6 +226,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_bnb.add_argument("--seed", type=int, default=42)
     p_bnb.add_argument("--no-persist", action="store_true")
 
+    p_maj = sub.add_parser(
+        "majors",
+        help="BTC/ETH/LTC/XRP 6-pair full chain: dual-null+BY+hub+residual",
+    )
+    p_maj.add_argument("--exchange", default=None)
+    p_maj.add_argument("--mc-sims-full", type=int, default=2000)
+    p_maj.add_argument("--mc-sims-roll", type=int, default=1500)
+    p_maj.add_argument("--window-days", type=int, default=365)
+    p_maj.add_argument("--step-days", type=int, default=90)
+    p_maj.add_argument("--seed", type=int, default=42)
+    p_maj.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -957,6 +969,105 @@ def main(argv: list[str] | None = None) -> int:
             config, exchange_id=args.exchange, persist=not args.no_persist
         )
         print("\n=== BNB-BTC vs BNB-UNI RESIDUAL CORR ===")
+        off = corr[corr["pair_a"] < corr["pair_b"]]
+        print(off.to_string(index=False))
+        return 0
+
+    if args.command == "majors":
+        import json
+
+        import pandas as pd
+
+        from pairs_trading.cointegration.majors_screen import run_majors_full_chain
+
+        report = run_majors_full_chain(
+            config,
+            exchange_id=args.exchange,
+            n_sims_full=args.mc_sims_full,
+            n_sims_roll=args.mc_sims_roll,
+            window_days=args.window_days,
+            step_days=args.step_days,
+            seed=args.seed,
+            persist=not args.no_persist,
+        )
+        full = report["full"]
+        roll = report["rolling"]
+        meta = report["rolling_meta"]
+        corr = report["residual_corr"]
+
+        print("=== MAJORS FULL SAMPLE (from 2022-01-01 or data start) ===")
+        fcols = [
+            c
+            for c in [
+                "pair_label",
+                "n_obs",
+                "pvalue_table",
+                "pvalue_mc",
+                "pvalue_bb",
+                "p_ratio_bb_over_rw",
+                "pvalue_bb_bh",
+                "significant_bb_bh",
+                "pvalue_bb_by",
+                "significant_bb_by",
+                "half_life",
+            ]
+            if c in full.columns
+        ]
+        print(full[fcols].to_string(index=False) if not full.empty else "(empty)")
+        if not full.empty:
+            eth_ltc = full[full["pair_label"] == "ETH-LTC"]
+            btc_eth = full[full["pair_label"] == "BTC-ETH"]
+            print("\n--- focus ETH-LTC vs BTC-ETH ---")
+            print(pd.concat([eth_ltc, btc_eth])[fcols].to_string(index=False))
+
+        print("\n=== MAJORS ROLLING ===")
+        print(json.dumps({k: v for k, v in meta.get("summary", {}).items() if k != "hubs"}, indent=2))
+        print("\nHub hit-rates (raw):")
+        for h, s in meta.get("hubs", {}).items():
+            print(
+                f"  {h}: hub={s['hit_rate_hub']:.3f} other={s['hit_rate_other']:.3f} "
+                f"ratio={s['hit_rate_ratio']:.2f}"
+            )
+        print("\nPer-pair rates:")
+        print(meta.get("pair_rates", pd.DataFrame()).to_string(index=False))
+
+        if not roll.empty:
+            hits = roll[roll["significant_bb_by_window"]]
+            rcols = [
+                c
+                for c in [
+                    "window_start",
+                    "window_end",
+                    "pair_label",
+                    "pvalue_table",
+                    "pvalue_mc",
+                    "pvalue_bb",
+                    "pvalue_bb_by_window",
+                    "significant_bb_by_window",
+                    "significant_bb_by_pooled",
+                ]
+                if c in roll.columns
+            ]
+            print("\n--- rolling BY-window survivors ---")
+            print(hits[rcols].to_string(index=False) if not hits.empty else "(none)")
+            eth_roll = roll[roll["pair_label"] == "ETH-LTC"][
+                [
+                    c
+                    for c in [
+                        "window_start",
+                        "window_end",
+                        "pvalue_table",
+                        "pvalue_mc",
+                        "pvalue_bb",
+                        "significant_bb_by_window",
+                    ]
+                    if c in roll.columns
+                ]
+            ]
+            print("\n--- ETH-LTC all rolling windows ---")
+            print(eth_roll.to_string(index=False))
+
+        print("\n=== RESIDUAL CORR (off-diagonal) ===")
         off = corr[corr["pair_a"] < corr["pair_b"]]
         print(off.to_string(index=False))
         return 0
