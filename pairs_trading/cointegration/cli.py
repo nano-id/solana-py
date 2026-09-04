@@ -114,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_roll.add_argument("--no-persist", action="store_true")
 
-    p_joh = sub.add_parser("johansen", help="Johansen multivariate basket screen")
+    p_joh = sub.add_parser("johansen", help="Johansen multivariate basket screen + BH-FDR")
     p_joh.add_argument(
         "--symbols",
         nargs="+",
@@ -124,6 +124,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_joh.add_argument("--sizes", nargs="+", type=int, default=[3, 4])
     p_joh.add_argument("--exchange", default=None)
     p_joh.add_argument("--no-persist", action="store_true")
+    p_joh.add_argument(
+        "--bnb-free-random",
+        action="store_true",
+        help="Baseline: random 3/4-tuples from BNB-free local universe",
+    )
+    p_joh.add_argument(
+        "--n-random",
+        type=int,
+        default=20,
+        help="Number of random BNB-free baskets (with --bnb-free-random)",
+    )
+    p_joh.add_argument("--seed", type=int, default=42)
+
+    p_hf = sub.add_parser(
+        "hf-retest",
+        help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
+    )
+    p_hf.add_argument("--hf-timeframe", default="4h")
+    p_hf.add_argument("--exchange", default=None)
+    p_hf.add_argument(
+        "--window-days",
+        nargs="+",
+        type=int,
+        default=[180, 365],
+        help="Which rolling_*d_none artifacts to load",
+    )
+    p_hf.add_argument("--no-persist", action="store_true")
 
     p_sig = sub.add_parser("signal-demo", help="Phase 3 skeleton on synthetic OU spread")
     p_sig.add_argument("--n", type=int, default=2000)
@@ -373,15 +400,30 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "johansen":
-        from pairs_trading.cointegration.johansen import scan_johansen_baskets
-
-        df = scan_johansen_baskets(
-            config,
-            candidates=args.symbols,
-            sizes=tuple(args.sizes),
-            exchange_id=args.exchange,
-            persist=not args.no_persist,
+        from pairs_trading.cointegration.johansen import (
+            scan_johansen_baskets,
+            scan_johansen_random_bnb_free,
         )
+
+        if args.bnb_free_random:
+            df = scan_johansen_random_bnb_free(
+                config,
+                n_baskets=args.n_random,
+                sizes=tuple(args.sizes),
+                seed=args.seed,
+                exchange_id=args.exchange,
+                persist=not args.no_persist,
+            )
+            title = "JOHANSEN BNB-FREE RANDOM BASELINE"
+        else:
+            df = scan_johansen_baskets(
+                config,
+                candidates=args.symbols,
+                sizes=tuple(args.sizes),
+                exchange_id=args.exchange,
+                persist=not args.no_persist,
+            )
+            title = "JOHANSEN BASKETS (+ BH-FDR)"
         if df.empty:
             print("No Johansen results.")
             return 1
@@ -393,15 +435,86 @@ def main(argv: list[str] | None = None) -> int:
                 "n_obs",
                 "n_coint_relations_95",
                 "has_coint_95",
+                "pvalue",
+                "pvalue_fdr",
+                "significant_fdr",
+                "contains_bnb",
                 "trace_r0",
                 "cv95_r0",
             ]
             if c in df.columns
         ]
-        print("=== JOHANSEN BASKETS ===")
+        print(f"=== {title} ===")
         print(df[cols].to_string(index=False))
         n_hit = int(df["has_coint_95"].sum())
-        print(f"\nBaskets tested: {len(df)}  |  with ≥1 coint relation @95%: {n_hit}")
+        n_fdr = int(df["significant_fdr"].sum()) if "significant_fdr" in df.columns else 0
+        print(
+            f"\nBaskets tested: {len(df)}  |  raw ≥1 coint @95%: {n_hit} "
+            f"({n_hit / len(df):.0%})  |  BH-FDR p<{alpha}: {n_fdr} "
+            f"({n_fdr / len(df):.0%})"
+        )
+        if n_fdr and "significant_fdr" in df.columns:
+            print("\n=== FDR SURVIVORS ===")
+            print(df.loc[df["significant_fdr"], cols].to_string(index=False))
+            if "contains_bnb" in df.columns:
+                no_bnb = df.loc[df["significant_fdr"] & ~df["contains_bnb"]]
+                print(f"\nFDR survivors without BNB: {len(no_bnb)}")
+                if not no_bnb.empty:
+                    print(no_bnb[cols].to_string(index=False))
+        return 0
+
+    if args.command == "hf-retest":
+        from pairs_trading.cointegration.hf_retest import (
+            load_rolling_fdr_hits,
+            retest_daily_fdr_pairs_at_hf,
+        )
+
+        hits = load_rolling_fdr_hits(
+            config,
+            exchange_id=args.exchange,
+            window_days=args.window_days,
+            timeframe="1d",
+        )
+        if hits.empty:
+            print("No daily rolling FDR hits found on disk.")
+            return 1
+        df = retest_daily_fdr_pairs_at_hf(
+            hits,
+            config,
+            hf_timeframe=args.hf_timeframe,
+            exchange_id=args.exchange,
+            persist=not args.no_persist,
+        )
+        if df.empty:
+            print(
+                f"HF retest produced no rows "
+                f"(missing {args.hf_timeframe} parquet? sync first)."
+            )
+            return 1
+        cols = [
+            c
+            for c in [
+                "window_start",
+                "window_end",
+                "window_days",
+                "pair",
+                "pvalue",
+                "daily_pvalue",
+                "daily_half_life_days",
+                "hf_half_life_bars",
+                "hf_half_life_days",
+                "hl_ratio_hf_over_daily",
+                "n_obs",
+            ]
+            if c in df.columns
+        ]
+        print(f"=== HF RETEST ({args.hf_timeframe}) OF DAILY FDR HITS ===")
+        print(df[cols].to_string(index=False))
+        n_raw = int((df["pvalue"] < alpha).sum())
+        print(
+            f"\nRetested: {len(df)}  |  still raw p<{alpha} at {args.hf_timeframe}: "
+            f"{n_raw}/{len(df)}"
+        )
         return 0
 
     if args.command == "signal-demo":

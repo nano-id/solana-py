@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from pairs_trading.cointegration.johansen import johansen_basket
+from pairs_trading.cointegration.fdr import apply_benjamini_hochberg
+from pairs_trading.cointegration.hf_retest import timeframe_hours
+from pairs_trading.cointegration.johansen import approx_trace_pvalue, johansen_basket
 from pairs_trading.cointegration.rolling import iter_windows, summarize_rolling
 
 
@@ -49,3 +51,33 @@ def test_johansen_basket_on_cointegrated_synthetic():
     out = johansen_basket(log_prices, ["A", "B", "C"], det_order=0, k_ar_diff=1)
     assert out["n_symbols"] == 3
     assert out["has_coint_95"] is True
+    assert "pvalue" in out
+    assert out["pvalue"] < 0.05
+
+
+def test_approx_trace_pvalue_monotonic():
+    cv90, cv95, cv99 = 20.0, 25.0, 30.0
+    assert approx_trace_pvalue(0.0, cv90, cv95, cv99) > 0.5
+    assert approx_trace_pvalue(cv90, cv90, cv95, cv99) == 0.10
+    assert approx_trace_pvalue(cv95, cv90, cv95, cv99) == 0.05
+    assert approx_trace_pvalue(cv99, cv90, cv95, cv99) == 0.005
+    assert approx_trace_pvalue(cv95 + 1, cv90, cv95, cv99) < 0.05
+
+
+def test_johansen_fdr_column_roundtrip():
+    df = pd.DataFrame(
+        {
+            "symbols": ["A|B|C", "D|E|F", "G|H|I"],
+            "pvalue": [0.01, 0.04, 0.20],
+            "has_coint_95": [True, True, False],
+        }
+    )
+    out = apply_benjamini_hochberg(df, pvalue_col="pvalue", alpha=0.05)
+    assert "significant_fdr" in out.columns
+    assert "pvalue_fdr" in out.columns
+    assert bool(out.loc[out["pvalue"] == 0.01, "significant_fdr"].iloc[0])
+
+
+def test_timeframe_hours():
+    assert timeframe_hours("4h") == 4.0
+    assert timeframe_hours("1d") == 24.0
