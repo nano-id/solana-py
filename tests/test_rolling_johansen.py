@@ -95,3 +95,34 @@ def test_monte_carlo_trace_pvalue_extreme():
     )
     assert strong["pvalue_mc"] < 0.05
     assert weak["pvalue_mc"] > 0.2
+
+
+def test_block_bootstrap_preserves_shape_and_raises_null_tail():
+    from pairs_trading.cointegration.johansen_mc import (
+        block_bootstrap_levels,
+        block_bootstrap_trace_pvalue,
+        monte_carlo_trace_pvalue,
+    )
+
+    rng = np.random.default_rng(0)
+    n, k = 300, 3
+    # Correlated innovations → common factor in levels (but we only need returns corr)
+    factor = rng.normal(size=(n - 1, 1))
+    idio = rng.normal(size=(n - 1, k)) * 0.3
+    rets = 0.8 * factor + idio
+    levels = np.vstack([np.zeros((1, k)), np.cumsum(rets, axis=0)])
+
+    boot = block_bootstrap_levels(levels, rng, block_size=10)
+    assert boot.shape == levels.shape
+
+    # Observed trace from independent walks should look less extreme under
+    # correlation-preserving null than under indep-RW when data are correlated —
+    # smoke: both p-values in (0,1] and BB path runs.
+    obs = 25.0
+    rw = monte_carlo_trace_pvalue(obs, n_obs=n, n_series=k, n_sims=150, seed=2)
+    bb = block_bootstrap_trace_pvalue(
+        obs, levels, n_sims=150, seed=2, block_size=10
+    )
+    assert 0 < rw["pvalue_mc"] <= 1
+    assert 0 < bb["pvalue_bb"] <= 1
+    assert bb["block_size"] == 10

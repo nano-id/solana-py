@@ -143,6 +143,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="After scan, Monte Carlo p-values for top-N baskets by trace (0=skip)",
     )
     p_joh.add_argument("--mc-sims", type=int, default=2000, help="MC simulations per basket")
+    p_joh.add_argument(
+        "--mc-block-bootstrap",
+        action="store_true",
+        help="Also run correlation-preserving block-bootstrap null (needs local OHLCV)",
+    )
+    p_joh.add_argument(
+        "--mc-block-size",
+        type=int,
+        default=None,
+        help="Block length for return-vector bootstrap (default: sqrt(T))",
+    )
+
+    p_dual = sub.add_parser(
+        "johansen-dual-null",
+        help="Compare indep-RW vs block-bootstrap nulls for explicit baskets",
+    )
+    p_dual.add_argument(
+        "--baskets",
+        nargs="+",
+        required=True,
+        help="Baskets as pipe-joined symbols, e.g. 'BNB/USDT|BTC/USDT|ETH/USDT'",
+    )
+    p_dual.add_argument("--exchange", default=None)
+    p_dual.add_argument("--mc-sims", type=int, default=2000)
+    p_dual.add_argument("--seed", type=int, default=42)
+    p_dual.add_argument("--mc-block-size", type=int, default=None)
+    p_dual.add_argument("--no-persist", action="store_true")
+    p_dual.add_argument(
+        "--basename",
+        default="johansen_dual_null",
+        help="Artifact basename when persisting",
+    )
 
     p_hf = sub.add_parser(
         "hf-retest",
@@ -484,8 +516,18 @@ def main(argv: list[str] | None = None) -> int:
             from pairs_trading.cointegration.persist import save_scan_results as _save
 
             eid = args.exchange or resolve_exchange_id(config)
+            store = ParquetStore(
+                config.storage.root, eid, config.ohlcv.timeframe
+            )
             enriched = enrich_top_baskets_monte_carlo(
-                df, top_n=args.mc_top, n_sims=args.mc_sims, seed=args.seed
+                df,
+                top_n=args.mc_top,
+                n_sims=args.mc_sims,
+                seed=args.seed,
+                block_bootstrap=bool(args.mc_block_bootstrap),
+                block_size=args.mc_block_size,
+                store=store if args.mc_block_bootstrap else None,
+                min_obs=config.cointegration.min_obs,
             )
             mc_cols = [
                 c
@@ -497,16 +539,33 @@ def main(argv: list[str] | None = None) -> int:
                     "cv95_r0",
                     "pvalue_table",
                     "pvalue_mc",
+                    "pvalue_bb",
+                    "p_ratio_bb_over_rw",
                     "mc_null_p95",
-                    "mc_null_p99",
+                    "bb_null_p95",
+                    "block_size",
                     "mc_n_sims",
                     "contains_bnb",
                 ]
                 if c in enriched.columns
             ]
             mc_view = enriched[enriched["pvalue_mc"].notna()]
-            print(f"\n=== MONTE CARLO p (top {args.mc_top} by trace, {args.mc_sims} sims) ===")
+            label = (
+                f"DUAL NULL (indep-RW vs block-bootstrap, top {args.mc_top}, "
+                f"{args.mc_sims} sims)"
+                if args.mc_block_bootstrap
+                else f"MONTE CARLO p (top {args.mc_top} by trace, {args.mc_sims} sims)"
+            )
+            print(f"\n=== {label} ===")
             print(mc_view[mc_cols].to_string(index=False))
+            if args.mc_block_bootstrap and "pvalue_bb" in mc_view.columns:
+                ratios = mc_view["p_ratio_bb_over_rw"].dropna()
+                if not ratios.empty:
+                    print(
+                        f"\np_bb / p_rw: median={ratios.median():.2f}  "
+                        f"min={ratios.min():.2f}  max={ratios.max():.2f}  "
+                        f"(>1 ⇒ correlation-preserving null less significant)"
+                    )
             if not args.no_persist and not mc_view.empty:
                 kind = "bnb_free" if args.bnb_free_random else "baskets"
                 _save(
@@ -521,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
                         "top_n": args.mc_top,
                         "n_sims": args.mc_sims,
                         "seed": args.seed,
+                        "block_bootstrap": bool(args.mc_block_bootstrap),
+                        "block_size": args.mc_block_size or "sqrt_T",
                     },
                     basename=(
                         "johansen_bnb_free_mc"
@@ -528,6 +589,52 @@ def main(argv: list[str] | None = None) -> int:
                         else "johansen_baskets_mc"
                     ),
                 )
+        return 0
+
+    if args.command == "johansen-dual-null":
+        from pairs_trading.cointegration.johansen_mc import compare_dual_nulls_for_baskets
+
+        baskets = [b.split("|") for b in args.baskets]
+        df = compare_dual_nulls_for_baskets(
+            baskets,
+            config,
+            exchange_id=args.exchange,
+            n_sims=args.mc_sims,
+            seed=args.seed,
+            block_size=args.mc_block_size,
+            persist=not args.no_persist,
+            basename=args.basename,
+        )
+        cols = [
+            c
+            for c in [
+                "symbols",
+                "contains_bnb",
+                "trace_r0",
+                "cv95_r0",
+                "pvalue_table",
+                "pvalue_mc",
+                "pvalue_bb",
+                "p_ratio_bb_over_rw",
+                "mc_null_p95",
+                "bb_null_p95",
+                "block_size",
+                "n_sims",
+            ]
+            if c in df.columns
+        ]
+        print("=== JOHANSEN DUAL NULL (indep-RW vs block-bootstrap) ===")
+        print(df[cols].to_string(index=False))
+        ratios = df["p_ratio_bb_over_rw"].dropna()
+        if not ratios.empty:
+            print(
+                f"\np_bb / p_rw: median={ratios.median():.2f}  "
+                f"min={ratios.min():.2f}  max={ratios.max():.2f}"
+            )
+            print(
+                "Interpretation: ratio ≫ 1 means common-factor / correlation "
+                "structure made the independent-RW null too optimistic."
+            )
         return 0
 
     if args.command == "hf-retest":
