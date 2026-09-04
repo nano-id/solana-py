@@ -176,6 +176,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Artifact basename when persisting",
     )
 
+    p_eg_dual = sub.add_parser(
+        "eg-dual-null",
+        help="Dual-null EG (indep-RW vs block-bootstrap) on rolling FDR survivors",
+    )
+    p_eg_dual.add_argument("--exchange", default=None)
+    p_eg_dual.add_argument(
+        "--window-days",
+        nargs="+",
+        type=int,
+        default=[180, 365],
+        help="Which rolling_*d_none artifacts to load",
+    )
+    p_eg_dual.add_argument("--mc-sims", type=int, default=2000)
+    p_eg_dual.add_argument("--seed", type=int, default=42)
+    p_eg_dual.add_argument("--mc-block-size", type=int, default=None)
+    p_eg_dual.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -635,6 +652,55 @@ def main(argv: list[str] | None = None) -> int:
                 "Interpretation: ratio ≫ 1 means common-factor / correlation "
                 "structure made the independent-RW null too optimistic."
             )
+        return 0
+
+    if args.command == "eg-dual-null":
+        from pairs_trading.cointegration.eg_dual_null import (
+            dual_null_rolling_fdr_pairs,
+            summarize_eg_dual_by_bnb,
+        )
+
+        df = dual_null_rolling_fdr_pairs(
+            config,
+            exchange_id=args.exchange,
+            window_days=tuple(args.window_days),
+            n_sims=args.mc_sims,
+            seed=args.seed,
+            block_size=args.mc_block_size,
+            persist=not args.no_persist,
+        )
+        if df.empty:
+            print("No rolling FDR hits / dual-null rows.")
+            return 1
+        cols = [
+            c
+            for c in [
+                "window_start",
+                "window_end",
+                "window_days",
+                "pair",
+                "contains_bnb",
+                "pvalue_table",
+                "pvalue_mc",
+                "pvalue_bb",
+                "p_ratio_bb_over_rw",
+                "test_statistic",
+                "rw_null_p05",
+                "bb_null_p05",
+                "block_size",
+                "n_obs",
+            ]
+            if c in df.columns
+        ]
+        print("=== EG DUAL NULL ON ROLLING FDR SURVIVORS ===")
+        print(df[cols].to_string(index=False))
+        summary = summarize_eg_dual_by_bnb(df)
+        print("\n=== BY GROUP (BNB vs BNB-free) ===")
+        print(summary.to_string(index=False))
+        print(
+            "\nInterpretation: p_bb/p_rw ≫ 1 ⇒ correlation/common-factor made "
+            "indep-RW (≈ MacKinnon) null too optimistic."
+        )
         return 0
 
     if args.command == "hf-retest":

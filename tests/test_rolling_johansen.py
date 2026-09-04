@@ -126,3 +126,18 @@ def test_block_bootstrap_preserves_shape_and_raises_null_tail():
     assert 0 < rw["pvalue_mc"] <= 1
     assert 0 < bb["pvalue_bb"] <= 1
     assert bb["block_size"] == 10
+
+
+def test_eg_dual_null_smoke():
+    from pairs_trading.cointegration.eg_dual_null import dual_null_eg_pair
+
+    rng = np.random.default_rng(1)
+    n = 200
+    # Cointegrated: y = x + stationary noise
+    x = np.cumsum(rng.normal(size=n))
+    y = x + rng.normal(size=n) * 0.5
+    out = dual_null_eg_pair(y, x, n_sims=80, seed=3, block_size=8)
+    assert "pvalue_mc" in out and "pvalue_bb" in out
+    assert out["pvalue_mc"] > 0
+    assert out["pvalue_bb"] > 0
+    assert out["block_size"] == 8
