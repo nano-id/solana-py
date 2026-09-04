@@ -193,6 +193,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_eg_dual.add_argument("--mc-block-size", type=int, default=None)
     p_eg_dual.add_argument("--no-persist", action="store_true")
 
+    p_resid = sub.add_parser(
+        "residual-retest",
+        help="BNB-free candidates: BTC + alt-index residual EG; BY on EG p_bb",
+    )
+    p_resid.add_argument("--exchange", default=None)
+    p_resid.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -701,6 +708,99 @@ def main(argv: list[str] | None = None) -> int:
             "\nInterpretation: p_bb/p_rw ≫ 1 ⇒ correlation/common-factor made "
             "indep-RW (≈ MacKinnon) null too optimistic."
         )
+        return 0
+
+    if args.command == "residual-retest":
+        from pairs_trading.cointegration.residual_retest import (
+            run_p_bb_by_and_residual_report,
+        )
+
+        report = run_p_bb_by_and_residual_report(
+            config,
+            exchange_id=args.exchange,
+            persist=not args.no_persist,
+        )
+        by_summary = report["by_summary"]
+        all_by = report["p_bb_by_all"]
+        uniq = report["p_bb_by_unique"]
+        resid = report["residual_retest"]
+
+        print("=== BY ON EG block-bootstrap p_bb (rolling FDR) ===")
+        print(
+            f"All rows: n={by_summary['n_all']}  "
+            f"p_bb<α: {by_summary['n_all_bb_lt_alpha']}  "
+            f"BY sig: {by_summary['n_all_by_sig']}"
+        )
+        print(
+            f"Unique pairs (min p_bb): n={by_summary['n_unique']}  "
+            f"p_bb<α: {by_summary['n_unique_bb_lt_alpha']}  "
+            f"BY sig: {by_summary['n_unique_by_sig']}"
+        )
+        cols_all = [
+            c
+            for c in [
+                "window_start",
+                "window_end",
+                "pair",
+                "contains_bnb",
+                "pvalue_bb",
+                "pvalue_bb_by",
+                "significant_bb_by",
+            ]
+            if c in all_by.columns
+        ]
+        print("\n--- all 13 ---")
+        print(all_by[cols_all].to_string(index=False))
+        cols_u = [
+            c
+            for c in [
+                "pair_canon",
+                "window_start",
+                "window_end",
+                "pair",
+                "contains_bnb",
+                "pvalue_bb",
+                "pvalue_bb_by_unique",
+                "significant_bb_by_unique",
+            ]
+            if c in uniq.columns
+        ]
+        print("\n--- unique pairs ---")
+        print(uniq[cols_u].to_string(index=False))
+
+        print("\n=== BNB-FREE CANDIDATES: raw / BTC / BTC+alt residual ===")
+        if resid.empty:
+            print("(no residual rows)")
+        else:
+            cols_r = [
+                c
+                for c in [
+                    "window_start",
+                    "window_end",
+                    "pair",
+                    "preprocess",
+                    "pvalue",
+                    "test_statistic",
+                    "half_life",
+                    "n_obs",
+                    "alt_index_n_members",
+                    "y_beta_btc",
+                    "y_beta_alt",
+                    "x_beta_btc",
+                    "x_beta_alt",
+                ]
+                if c in resid.columns
+            ]
+            print(resid[cols_r].to_string(index=False))
+            # Pivot-like summary: p by preprocess
+            wide = resid.pivot_table(
+                index=["window_start", "window_end", "pair"],
+                columns="preprocess",
+                values="pvalue",
+                aggfunc="first",
+            )
+            print("\n--- p-value wide ---")
+            print(wide.to_string())
         return 0
 
     if args.command == "hf-retest":

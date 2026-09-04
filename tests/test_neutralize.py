@@ -59,3 +59,49 @@ def test_build_factor_residual_frames_excludes_factor():
     assert "BTC/USDT" not in out
     assert set(out) == {"ETH/USDT", "SOL/USDT"}
     assert "beta_vs_factor" in meta["ETH/USDT"]
+
+
+def test_alt_index_and_btc_alt_residual():
+    from pairs_trading.cointegration.neutralize import (
+        build_btc_alt_residual_frames,
+        build_equal_weight_alt_index,
+    )
+
+    rng = np.random.default_rng(3)
+    n = 300
+    log_btc = np.cumsum(rng.normal(0, 0.01, size=n)) + 10
+    frames = {"BTC/USDT": _ohlcv(np.exp(log_btc)), "ETH/USDT": _ohlcv(np.exp(log_btc))}
+    for i, sym in enumerate(["ADA/USDT", "SOL/USDT", "ARB/USDT", "DOGE/USDT"]):
+        frames[sym] = _ohlcv(
+            np.exp(log_btc + 0.3 * i + np.cumsum(rng.normal(0, 0.02, size=n)))
+        )
+    idx, members = build_equal_weight_alt_index(frames)
+    assert "BTC/USDT" not in members and "ETH/USDT" not in members
+    assert len(idx) == n - 1
+    out, meta, _, _ = build_btc_alt_residual_frames(
+        frames, min_obs=100, symbols=["ADA/USDT", "SOL/USDT"]
+    )
+    assert "ADA/USDT" in out
+    assert "beta_btc" in meta["ADA/USDT"]
+    assert "beta_alt_index" in meta["ADA/USDT"]
+
+
+def test_by_on_p_bb_unique_dedupe():
+    from pairs_trading.cointegration.residual_retest import apply_by_to_p_bb
+
+    df = pd.DataFrame(
+        {
+            "y_symbol": ["BNB/USDT", "BNB/USDT", "ADA/USDT", "ADA/USDT"],
+            "x_symbol": ["BTC/USDT", "BTC/USDT", "WLD/USDT", "ARB/USDT"],
+            "pvalue_bb": [0.01, 0.03, 0.02, 0.04],
+            "window_start": ["a", "b", "c", "d"],
+            "window_end": ["a2", "b2", "c2", "d2"],
+            "pair": ["BNB|BTC", "BNB|BTC", "ADA|WLD", "ADA|ARB"],
+            "contains_bnb": [True, True, False, False],
+        }
+    )
+    all_by, uniq, summary = apply_by_to_p_bb(df, alpha=0.05)
+    assert summary["n_all"] == 4
+    assert summary["n_unique"] == 3  # BNB-BTC deduped
+    assert "significant_bb_by" in all_by.columns
+    assert "significant_bb_by_unique" in uniq.columns
