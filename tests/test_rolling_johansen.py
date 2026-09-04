@@ -81,3 +81,17 @@ def test_johansen_fdr_column_roundtrip():
 def test_timeframe_hours():
     assert timeframe_hours("4h") == 4.0
     assert timeframe_hours("1d") == 24.0
+
+
+def test_monte_carlo_trace_pvalue_extreme():
+    from pairs_trading.cointegration.johansen_mc import monte_carlo_trace_pvalue
+
+    # Trace far in the right tail of null → small p
+    strong = monte_carlo_trace_pvalue(
+        80.0, n_obs=200, n_series=3, n_sims=200, seed=1
+    )
+    weak = monte_carlo_trace_pvalue(
+        5.0, n_obs=200, n_series=3, n_sims=200, seed=1
+    )
+    assert strong["pvalue_mc"] < 0.05
+    assert weak["pvalue_mc"] > 0.2

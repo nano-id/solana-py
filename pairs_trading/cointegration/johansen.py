@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
 
-from pairs_trading.cointegration.fdr import apply_benjamini_hochberg
+from pairs_trading.cointegration.fdr import apply_bh_and_by
 from pairs_trading.cointegration.persist import save_scan_results
 from pairs_trading.cointegration.scanner import (
     load_symbol_frame,
@@ -187,7 +187,7 @@ def scan_johansen_baskets(
         k_ar_diff=k_ar_diff,
     )
     if not df.empty:
-        df = apply_benjamini_hochberg(df, pvalue_col="pvalue", alpha=alpha)
+        df = apply_bh_and_by(df, pvalue_col="pvalue", alpha=alpha)
         df = df.sort_values(
             ["significant_fdr", "pvalue_fdr", "trace_r0"],
             ascending=[False, True, False],
@@ -209,7 +209,8 @@ def scan_johansen_baskets(
                 "n_baskets": len(df),
                 "n_with_coint_95": int(df["has_coint_95"].sum()),
                 "n_significant_fdr": int(df["significant_fdr"].sum()),
-                "fdr_method": "benjamini_hochberg_on_approx_trace_pvalue",
+                "n_significant_by": int(df["significant_by"].sum()),
+                "fdr_methods": ["benjamini_hochberg", "benjamini_yekutieli"],
             },
             basename="johansen_baskets",
         )
@@ -267,7 +268,7 @@ def scan_johansen_random_bnb_free(
         k_ar_diff=1,
     )
     if not df.empty:
-        df = apply_benjamini_hochberg(df, pvalue_col="pvalue", alpha=alpha)
+        df = apply_bh_and_by(df, pvalue_col="pvalue", alpha=alpha)
         df = df.sort_values(["pvalue_fdr", "pvalue"]).reset_index(drop=True)
 
     if persist and not df.empty:
@@ -285,8 +286,11 @@ def scan_johansen_random_bnb_free(
                 "seed": seed,
                 "n_with_coint_95": int(df["has_coint_95"].sum()),
                 "n_significant_fdr": int(df["significant_fdr"].sum()),
+                "n_significant_by": int(df["significant_by"].sum()),
                 "hit_rate_raw_95": float(df["has_coint_95"].mean()),
                 "hit_rate_fdr": float(df["significant_fdr"].mean()),
+                "hit_rate_by": float(df["significant_by"].mean()),
+                "fdr_methods": ["benjamini_hochberg", "benjamini_yekutieli"],
             },
             basename="johansen_bnb_free_random",
         )

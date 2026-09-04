@@ -38,6 +38,49 @@ def apply_benjamini_hochberg(
     return out
 
 
+def apply_benjamini_yekutieli(
+    df: pd.DataFrame,
+    *,
+    pvalue_col: str = "pvalue",
+    alpha: float = 0.05,
+) -> pd.DataFrame:
+    """Add Benjamini–Yekutieli FDR (valid under arbitrary dependence).
+
+    BY is stricter than BH: it multiplies the BH threshold by harmonic number
+    H_m = Σ_{i=1}^m 1/i. Prefer BY when tests share factors / overlapping assets
+    (Johansen baskets, hub-contaminated pair screens).
+
+    Columns added:
+      - pvalue_by: BY-adjusted p-value
+      - significant_by: True iff rejected at FDR-BY level α
+    """
+    out = df.copy()
+    if out.empty:
+        out["pvalue_by"] = pd.Series(dtype=float)
+        out["significant_by"] = pd.Series(dtype=bool)
+        return out
+
+    pvals = out[pvalue_col].astype(float).to_numpy()
+    reject, p_adj, _, _ = multipletests(pvals, alpha=alpha, method="fdr_by")
+    out["pvalue_by"] = p_adj
+    out["significant_by"] = reject
+    if "significant_raw" not in out.columns:
+        out["significant_raw"] = pvals < alpha
+    return out
+
+
+def apply_bh_and_by(
+    df: pd.DataFrame,
+    *,
+    pvalue_col: str = "pvalue",
+    alpha: float = 0.05,
+) -> pd.DataFrame:
+    """Apply both BH and BY; keep BH columns as the primary `significant` flag."""
+    out = apply_benjamini_hochberg(df, pvalue_col=pvalue_col, alpha=alpha)
+    out = apply_benjamini_yekutieli(out, pvalue_col=pvalue_col, alpha=alpha)
+    return out
+
+
 def hub_involvement_summary(
     df: pd.DataFrame,
     *,

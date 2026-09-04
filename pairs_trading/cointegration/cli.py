@@ -136,6 +136,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of random BNB-free baskets (with --bnb-free-random)",
     )
     p_joh.add_argument("--seed", type=int, default=42)
+    p_joh.add_argument(
+        "--mc-top",
+        type=int,
+        default=0,
+        help="After scan, Monte Carlo p-values for top-N baskets by trace (0=skip)",
+    )
+    p_joh.add_argument("--mc-sims", type=int, default=2000, help="MC simulations per basket")
 
     p_hf = sub.add_parser(
         "hf-retest",
@@ -438,6 +445,8 @@ def main(argv: list[str] | None = None) -> int:
                 "pvalue",
                 "pvalue_fdr",
                 "significant_fdr",
+                "pvalue_by",
+                "significant_by",
                 "contains_bnb",
                 "trace_r0",
                 "cv95_r0",
@@ -448,19 +457,77 @@ def main(argv: list[str] | None = None) -> int:
         print(df[cols].to_string(index=False))
         n_hit = int(df["has_coint_95"].sum())
         n_fdr = int(df["significant_fdr"].sum()) if "significant_fdr" in df.columns else 0
+        n_by = int(df["significant_by"].sum()) if "significant_by" in df.columns else 0
         print(
             f"\nBaskets tested: {len(df)}  |  raw ≥1 coint @95%: {n_hit} "
-            f"({n_hit / len(df):.0%})  |  BH-FDR p<{alpha}: {n_fdr} "
-            f"({n_fdr / len(df):.0%})"
+            f"({n_hit / len(df):.0%})  |  BH-FDR: {n_fdr} ({n_fdr / len(df):.0%})  |  "
+            f"BY-FDR: {n_by} ({n_by / len(df):.0%})"
+        )
+        print(
+            "\n(BY = Benjamini–Yekutieli: valid under arbitrary dependence; "
+            "stricter than BH when tests overlap.)"
         )
         if n_fdr and "significant_fdr" in df.columns:
-            print("\n=== FDR SURVIVORS ===")
+            print("\n=== BH-FDR SURVIVORS ===")
             print(df.loc[df["significant_fdr"], cols].to_string(index=False))
+        if n_by and "significant_by" in df.columns:
+            print("\n=== BY-FDR SURVIVORS ===")
+            print(df.loc[df["significant_by"], cols].to_string(index=False))
             if "contains_bnb" in df.columns:
-                no_bnb = df.loc[df["significant_fdr"] & ~df["contains_bnb"]]
-                print(f"\nFDR survivors without BNB: {len(no_bnb)}")
-                if not no_bnb.empty:
-                    print(no_bnb[cols].to_string(index=False))
+                no_bnb = df.loc[df["significant_by"] & ~df["contains_bnb"]]
+                print(f"\nBY survivors without BNB: {len(no_bnb)}")
+        elif "significant_by" in df.columns:
+            print("\n=== BY-FDR SURVIVORS ===\n(none)")
+
+        if args.mc_top and args.mc_top > 0:
+            from pairs_trading.cointegration.johansen_mc import enrich_top_baskets_monte_carlo
+            from pairs_trading.cointegration.persist import save_scan_results as _save
+
+            eid = args.exchange or resolve_exchange_id(config)
+            enriched = enrich_top_baskets_monte_carlo(
+                df, top_n=args.mc_top, n_sims=args.mc_sims, seed=args.seed
+            )
+            mc_cols = [
+                c
+                for c in [
+                    "symbols",
+                    "n_symbols",
+                    "n_obs",
+                    "trace_r0",
+                    "cv95_r0",
+                    "pvalue_table",
+                    "pvalue_mc",
+                    "mc_null_p95",
+                    "mc_null_p99",
+                    "mc_n_sims",
+                    "contains_bnb",
+                ]
+                if c in enriched.columns
+            ]
+            mc_view = enriched[enriched["pvalue_mc"].notna()]
+            print(f"\n=== MONTE CARLO p (top {args.mc_top} by trace, {args.mc_sims} sims) ===")
+            print(mc_view[mc_cols].to_string(index=False))
+            if not args.no_persist and not mc_view.empty:
+                kind = "bnb_free" if args.bnb_free_random else "baskets"
+                _save(
+                    enriched,
+                    root=config.storage.root,
+                    exchange_id=eid,
+                    timeframe=config.ohlcv.timeframe,
+                    mode=config.cointegration.persist_mode,
+                    meta={
+                        "kind": "johansen_monte_carlo",
+                        "scan": kind,
+                        "top_n": args.mc_top,
+                        "n_sims": args.mc_sims,
+                        "seed": args.seed,
+                    },
+                    basename=(
+                        "johansen_bnb_free_mc"
+                        if args.bnb_free_random
+                        else "johansen_baskets_mc"
+                    ),
+                )
         return 0
 
     if args.command == "hf-retest":
