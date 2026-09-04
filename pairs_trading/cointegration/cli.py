@@ -200,6 +200,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_resid.add_argument("--exchange", default=None)
     p_resid.add_argument("--no-persist", action="store_true")
 
+    p_wld = sub.add_parser(
+        "wld-hub",
+        help="WLD hub/placebo rolling EG + dual-null; residual corr of WLD candidates",
+    )
+    p_wld.add_argument("--exchange", default=None)
+    p_wld.add_argument("--window-days", type=int, default=180)
+    p_wld.add_argument("--step-days", type=int, default=90)
+    p_wld.add_argument("--mc-sims", type=int, default=1500)
+    p_wld.add_argument("--seed", type=int, default=42)
+    p_wld.add_argument(
+        "--placebos",
+        nargs="+",
+        default=None,
+        help="Default: LTC ATOM NEAR DOGE XAUT",
+    )
+    p_wld.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -801,6 +818,83 @@ def main(argv: list[str] | None = None) -> int:
             )
             print("\n--- p-value wide ---")
             print(wide.to_string())
+        return 0
+
+    if args.command == "wld-hub":
+        import json
+
+        from pairs_trading.cointegration.wld_hub import (
+            correlate_wld_candidate_residuals,
+            rolling_hub_placebo_screen,
+        )
+
+        eg_df, dual_df, summary = rolling_hub_placebo_screen(
+            config,
+            hub_symbol="WLD/USDT",
+            placebos=args.placebos,
+            exchange_id=args.exchange,
+            window_days=args.window_days,
+            step_days=args.step_days,
+            n_sims=args.mc_sims,
+            seed=args.seed,
+            persist=not args.no_persist,
+        )
+        print("=== WLD HUB / PLACEBO ROLLING EG ===")
+        print(json.dumps({k: v for k, v in summary.items() if not isinstance(v, float) or v == v}, indent=2, default=str))
+        print(
+            f"\nHit-rate WLD-pairs: {summary.get('hit_rate_hub', float('nan')):.3f}  "
+            f"({summary.get('n_hub_raw_hits')}/{summary.get('n_hub_pair_windows')})  |  "
+            f"WLD-free pairs: {summary.get('hit_rate_other', float('nan')):.3f}  "
+            f"({summary.get('n_other_raw_hits')}/{summary.get('n_other_pair_windows')})  |  "
+            f"ratio: {summary.get('hit_rate_ratio', float('nan')):.2f}"
+        )
+        if not eg_df.empty:
+            hub_hits = eg_df[eg_df["contains_hub"] & eg_df["significant_raw"]]
+            cols = [
+                c
+                for c in [
+                    "window_start",
+                    "window_end",
+                    "pair",
+                    "pvalue",
+                    "pvalue_fdr",
+                    "significant_fdr",
+                    "half_life",
+                ]
+                if c in hub_hits.columns
+            ]
+            print("\n--- WLD raw hits ---")
+            print(hub_hits[cols].to_string(index=False) if not hub_hits.empty else "(none)")
+        if not dual_df.empty:
+            dcols = [
+                c
+                for c in [
+                    "window_start",
+                    "window_end",
+                    "pair",
+                    "pvalue_table",
+                    "pvalue_mc",
+                    "pvalue_bb",
+                    "p_ratio_bb_over_rw",
+                    "significant_raw",
+                ]
+                if c in dual_df.columns
+            ]
+            print("\n=== DUAL-NULL ON WLD|placebo WINDOWS ===")
+            print(dual_df[dcols].to_string(index=False))
+            print(
+                f"\nWLD dual: median p_rw={summary.get('dual_hub_median_p_rw')}  "
+                f"median p_bb={summary.get('dual_hub_median_p_bb')}  "
+                f"frac p_bb<0.05={summary.get('dual_hub_frac_bb_lt_05')}"
+            )
+
+        corr_report = correlate_wld_candidate_residuals(
+            config, exchange_id=args.exchange, persist=not args.no_persist
+        )
+        corr = corr_report["corr"]
+        print("\n=== OKB-WLD / ADA-WLD / ARB-WLD RESIDUAL CORR ===")
+        off = corr[corr["pair_a"] < corr["pair_b"]]  # unique unordered pairs
+        print(off.to_string(index=False))
         return 0
 
     if args.command == "hf-retest":

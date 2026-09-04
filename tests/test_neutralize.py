@@ -105,3 +105,10 @@ def test_by_on_p_bb_unique_dedupe():
     assert summary["n_unique"] == 3  # BNB-BTC deduped
     assert "significant_bb_by" in all_by.columns
     assert "significant_bb_by_unique" in uniq.columns
+
+
+def test_wld_involves_helper():
+    from pairs_trading.cointegration.wld_hub import _involves
+
+    assert _involves("WLD/USDT", "LTC/USDT", "WLD/USDT")
+    assert not _involves("LTC/USDT", "DOGE/USDT", "WLD/USDT")
