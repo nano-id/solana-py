@@ -29,6 +29,7 @@ dev = [
 pairs-data = "pairs_trading.data.cli:main"
 pairs-coint = "pairs_trading.cointegration.cli:main"
 pairs-funding = "pairs_trading.funding.cli:main"
+pairs-factor = "pairs_trading.factor_beta.cli:main"
 funding-arb = "funding_arb.cli:main"
 
 [tool.setuptools.packages.find]

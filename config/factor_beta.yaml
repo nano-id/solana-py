@@ -1,0 +1,85 @@
+# Module 3 — Factor-based BTC-beta residual strategy
+# Rule 5 constraints are MANDATORY from day one (not optional later).
+
+data_config: config/scan.yaml
+
+factor:
+  symbol: BTC/USDT
+  beta_window_grid: [60, 90, 120]
+  min_obs: 60
+
+universe:
+  symbols:
+    - ETH/USDT
+    - SOL/USDT
+    - XRP/USDT
+    - DOGE/USDT
+    - BNB/USDT
+    - ADA/USDT
+    - LTC/USDT
+    - SUI/USDT
+    - APT/USDT
+    - NEAR/USDT
+    - ARB/USDT
+    - OP/USDT
+    - FIL/USDT
+    - WLD/USDT
+    - ATOM/USDT
+    - UNI/USDT
+    - TRX/USDT
+    - PEPE/USDT
+    - OKB/USDT
+    - XAUT/USDT
+  require_on_disk: true
+  prefer_on_disk_intersection: true
+  max_symbols: 20
+
+costs:
+  round_trip_bps_min: 30.0
+  round_trip_bps_max: 40.0
+  round_trip_bps: 35.0
+  source: "OKX Regular docs + Module-1 fee audit (taker dual-leg RT ~30–40 bps)"
+
+entry_gate:
+  min_edge_to_cost_multiple: 2.5
+  max_edge_to_cost_multiple: 3.0
+
+evaluation:
+  min_independent_windows: 5
+  window_weeks_min: 8
+  window_weeks_max: 10
+  windows_must_be_non_overlapping: true
+
+multiple_testing:
+  dual_null: true
+  null_a: independent_random_walk
+  null_b: block_bootstrap
+  fdr_method: benjamini_yekutieli
+  fdr_q: 0.10
+
+common_factor_control:
+  max_abs_residual_corr: 0.5
+  action: cluster_as_single_signal
+
+stationarity:
+  adf_pvalue_max: 0.05
+
+signal:
+  z_entry_grid: [1.5, 2.0, 2.5, 3.0]
+  z_exit_grid: [0.25, 0.5, 0.75]
+  zscore_window_grid: [20, 40, 60]
+
+walk_forward:
+  prefer_plateau: true
+  plateau_neighbor_tolerance_pct: 10.0
+
+logging:
+  report_gross_and_net_separately: true
+  report_trade_count: true
+  report_cost_leakage_ratio: true
+
+storage:
+  root: data
+  exchange_id: okx
+  timeframe: 1d
+  output_dir: data/okx/factor_beta
