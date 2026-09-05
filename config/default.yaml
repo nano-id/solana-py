@@ -1,0 +1,50 @@
+# Data-layer defaults. Strategy parameters (z-score thresholds, windows, etc.)
+# MUST NOT live here — they come from walk-forward validation later.
+
+exchange:
+  # Primary venue (config-driven; never hard-coded in call sites).
+  id: binance
+  # Tried in order after `id` on geo/availability failures (403/451/etc.).
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: spot  # spot | swap
+
+universe:
+  top_n: 30
+  min_quote_volume: 5_000_000
+  exclude_bases:
+    - USDT
+    - USDC
+    - BUSD
+    - DAI
+    - TUSD
+    - FDUSD
+    - USDE
+    - USD1
+    - WBTC
+    - WETH
+    - STETH
+
+ohlcv:
+  timeframe: 1h
+  lookback_days: 365
+  limit_per_request: 1000
+
+storage:
+  root: data
+
+cointegration:
+  pvalue_threshold: 0.05
+  min_obs: 100
+  # dated | latest | both
+  persist_mode: both
+  # Point-in-time universe: YYYY-MM-DD or "auto" (oldest snapshot on disk)
+  universe_as_of: auto
+  # log (default): log(y) = α + β·log(x) + ε. Never use level for live signals.
+  price_space: log
+  preprocess: none
+  factor_symbol: BTC/USDT
