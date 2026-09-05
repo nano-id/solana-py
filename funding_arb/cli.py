@@ -22,6 +22,10 @@ from funding_arb.screen import (
     screen_summary,
 )
 from funding_arb.storage import snapshot_summary
+from funding_arb.journal import JournalCosts, load_journal, record_cycle
+from funding_arb.report import build_observation_report, save_observation_report
+from funding_arb.control import run_control_cycle
+from funding_arb.position import PaperPosition
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,6 +79,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Paper-only: force spot timeout to exercise unpaired-leg flatten",
     )
+
+    r = sub.add_parser(
+        "report",
+        help="Observation report: floor_persistence + journal gross/net (step 6)",
+    )
+    r.add_argument("--exchange-id", default=None)
+    r.add_argument("--min-days", type=float, default=None)
+    r.add_argument("--persist", action="store_true", default=True)
+
+    y = sub.add_parser(
+        "cycle",
+        help="Paper control cycle with journal logging (exit→rotate/enter)",
+    )
+    y.add_argument("--from-latest", action="store_true", default=True)
+    y.add_argument("--position-json", default=None, help="Optional open PaperPosition JSON path")
     return p
 
 
@@ -273,6 +292,99 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
         return 0 if result.state.value in {"balanced", "flattened", "aborted"} else 1
+
+
+    if args.command == "report":
+        candidates = [config.exchange.id, *list(config.exchange.fallbacks), "okx"]
+        exchange_id = args.exchange_id
+        if exchange_id is None:
+            # Prefer exchange that already has history.
+            from funding_arb.storage import snapshots_dir
+            exchange_id = next(
+                (
+                    eid
+                    for eid in candidates
+                    if (snapshots_dir(config.storage.root, eid) / "history.parquet").is_file()
+                ),
+                candidates[-1],
+            )
+        min_days = (
+            float(args.min_days)
+            if args.min_days is not None
+            else float(config.observation.min_days)
+        )
+        report = build_observation_report(
+            root=config.storage.root,
+            exchange_id=exchange_id,
+            floor_lookback=config.observation.floor_lookback,
+            min_days=min_days,
+            min_settlements=config.observation.min_settlements,
+            settlements_per_day=config.collector.settlements_per_day,
+        )
+        print("=== OBSERVATION REPORT ===")
+        import json as _json
+        print(_json.dumps(report, indent=2))
+        if args.persist:
+            path = save_observation_report(
+                report, root=config.storage.root, exchange_id=exchange_id
+            )
+            print("Wrote:", path)
+        return 0 if report["readiness"]["ready"] else 3
+
+    if args.command == "cycle":
+        import json as _json
+        candidates = [config.exchange.id, *list(config.exchange.fallbacks), "okx"]
+        frame, exchange_id = _load_latest_snapshot(Path(config.storage.root), candidates)
+        min_depth = float(config.screen.min_depth_usdt)
+        screen = _build_screen(config, frame, exchange_id, min_depth)
+        pos_path = Path(config.storage.root) / exchange_id / "funding_arb" / "paper_position.json"
+        position = None
+        position_src = Path(args.position_json) if args.position_json else pos_path
+        if position_src.is_file():
+            raw = _json.loads(position_src.read_text(encoding="utf-8"))
+            position = PaperPosition.from_dict(raw)
+            print(f"cycle loaded_position={position_src} symbol={position.symbol}")
+        result = run_control_cycle(
+            screen,
+            position,
+            exchange_id=exchange_id,
+            min_edge_multiple=config.rotation.min_edge_multiple,
+            rotation_cost=config.rotation.rotation_cost,
+            require_non_floor=config.rotation.require_non_floor,
+            exit_on_floor=config.exit.exit_on_floor,
+            exit_on_adverse_funding=config.exit.exit_on_adverse_funding,
+            depth_fraction=config.entry.depth_fraction,
+            max_notional_usdt=config.entry.max_notional_usdt,
+            min_notional_usdt=config.entry.min_notional_usdt,
+            flatten_unpaired=config.entry.flatten_unpaired,
+        )
+        print("=== CONTROL CYCLE ===")
+        print(_json.dumps(result.to_dict(), indent=2, default=str))
+        if config.journal.enabled:
+            paths = record_cycle(
+                result,
+                root=config.storage.root,
+                exchange_id=exchange_id,
+                costs=JournalCosts(
+                    rotation_cost=config.journal.rotation_cost,
+                    slippage_cost=config.journal.slippage_cost,
+                ),
+                settlements_per_day=config.collector.settlements_per_day,
+            )
+            if paths:
+                print("Journal:", ", ".join(str(p) for p in paths[:3]))
+        pos_path.parent.mkdir(parents=True, exist_ok=True)
+        if result.position_after is not None:
+            pos_path.write_text(
+                _json.dumps(result.position_after.to_dict(), indent=2) + "\n",
+                encoding="utf-8",
+            )
+            print("Position:", pos_path)
+        elif pos_path.is_file() and result.action.value in {"exit", "flatten_alarm"}:
+            pos_path.unlink()
+            print("Position cleared")
+        return 0
+
 
     build_parser().error(f"Unknown command: {args.command}")
     return 2

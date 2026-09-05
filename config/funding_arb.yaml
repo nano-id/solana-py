@@ -68,3 +68,13 @@ rotation:
 exit:
   exit_on_adverse_funding: true  # funding sign no longer pays the side
   exit_on_floor: true            # interest-floor = premium gone
+
+journal:
+  enabled: true
+  rotation_cost: 0.004   # assumed ~0.4% RT on rotate (gross→net)
+  slippage_cost: 0.0005  # assumed 5 bps per open/close event
+
+observation:
+  min_days: 5            # wall-clock before "ready" (prefer 7–14)
+  min_settlements: 15    # ~5d × 3 settlements/day
+  floor_lookback: 48     # snapshots for floor_persistence once history grows

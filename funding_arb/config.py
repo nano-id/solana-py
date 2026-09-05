@@ -95,6 +95,24 @@ class ExitConfig(BaseModel):
     exit_on_floor: bool = True
 
 
+class JournalConfig(BaseModel):
+    """Step 6 trade journal + paper gross/net cost assumptions."""
+
+    enabled: bool = True
+    # Fraction of notional charged on rotate (informational netting).
+    rotation_cost: float = Field(default=0.004, ge=0.0, le=0.05)
+    # Fraction of notional charged on each open or close event.
+    slippage_cost: float = Field(default=0.0005, ge=0.0, le=0.05)
+
+
+class ObservationConfig(BaseModel):
+    """Multi-day collect readiness gates (NOT a coding-complete flag)."""
+
+    min_days: float = Field(default=5.0, gt=0)
+    min_settlements: int = Field(default=15, ge=1)
+    floor_lookback: int = Field(default=48, ge=1)
+
+
 class FundingArbAppConfig(BaseModel):
     exchange: ExchangeConfig = Field(
         default_factory=lambda: ExchangeConfig(
@@ -110,6 +128,8 @@ class FundingArbAppConfig(BaseModel):
     entry: EntryConfig = Field(default_factory=EntryConfig)
     rotation: RotationConfig = Field(default_factory=RotationConfig)
     exit: ExitConfig = Field(default_factory=ExitConfig)
+    journal: JournalConfig = Field(default_factory=JournalConfig)
+    observation: ObservationConfig = Field(default_factory=ObservationConfig)
 
     @field_validator("exchange")
     @classmethod
