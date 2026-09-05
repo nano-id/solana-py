@@ -238,6 +238,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_maj.add_argument("--seed", type=int, default=42)
     p_maj.add_argument("--no-persist", action="store_true")
 
+    p_ijsra = sub.add_parser(
+        "ijsra-stress",
+        help="IJSRA 2026 paper setup × Rule 5d dual-null+BY stress (control only)",
+    )
+    p_ijsra.add_argument("--exchange", default="okx")
+    p_ijsra.add_argument("--n-sims-eg", type=int, default=500)
+    p_ijsra.add_argument("--n-sims-pnl", type=int, default=200)
+    p_ijsra.add_argument("--seed", type=int, default=42)
+    p_ijsra.add_argument("--no-persist", action="store_true")
+
     p_hf = sub.add_parser(
         "hf-retest",
         help="Retest daily rolling FDR survivors at higher frequency (default 4h)",
@@ -1070,6 +1080,40 @@ def main(argv: list[str] | None = None) -> int:
         print("\n=== RESIDUAL CORR (off-diagonal) ===")
         off = corr[corr["pair_a"] < corr["pair_b"]]
         print(off.to_string(index=False))
+        return 0
+
+    
+    if args.command == "ijsra-stress":
+        from pairs_trading.cointegration.ijsra_stress import run_ijsra_rule5d_stress
+
+        report = run_ijsra_rule5d_stress(
+            config,
+            exchange_id=args.exchange,
+            n_sims_eg=args.n_sims_eg,
+            n_sims_pnl=args.n_sims_pnl,
+            seed=args.seed,
+            persist=not args.no_persist,
+        )
+        focus = report["btc_eth_focus"]
+        summary = report["summary"]
+        print("IJSRA 2026 × Rule 5d stress")
+        print(f"  verdict={summary['verdict']} interpretation_allowed={report['interpretation_allowed']}")
+        print(
+            f"  BTC-ETH EG table_p={focus['eg_pvalue_table']:.4f} "
+            f"dual_p={focus['eg_pvalue_dual']:.4f} BY_p={focus['eg_pvalue_by']:.4f} "
+            f"survive={focus['eg_survives_rule5d']}"
+        )
+        print(
+            f"  BTC-ETH ann_net={focus['ann_net_okx']*100:.2f}% "
+            f"pnl_dual_p={focus['pnl_pvalue_dual']:.4f} BY_p={focus['pnl_pvalue_by']:.4f} "
+            f"survive={focus['pnl_survives_rule5d']} trades={focus['n_trades_okx']}"
+        )
+        print(
+            f"  survive_eg={summary['n_pairs_survive_eg_rule5d']}/6 "
+            f"survive_pnl={summary['n_pairs_survive_pnl_rule5d']}/4"
+        )
+        if report.get("artifact"):
+            print(f"  artifact={report['artifact']}")
         return 0
 
     if args.command == "hf-retest":
