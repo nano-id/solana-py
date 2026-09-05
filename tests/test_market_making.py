@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from market_making.as_math import as_half_spread_bps, reservation_price
 from market_making.config import MarketMakingConfig, load_mm_config
 from market_making.engine import QuoteEngine
 from market_making.fees import (
@@ -26,7 +27,6 @@ def test_required_half_spread_clears_fee_plus_buffer() -> None:
     cfg = MarketMakingConfig(
         commission_pct=0.07, edge_buffer_bps=5.0, min_half_spread_bps=12.0
     )
-    # max(12, 7+5) = 12
     assert cfg.required_half_spread_bps == 12.0
     assert is_positive_half_spread(12.0, cfg)
     assert not is_positive_half_spread(11.0, cfg)
@@ -36,6 +36,16 @@ def test_required_half_spread_clears_fee_plus_buffer() -> None:
 def test_fee_on_notional() -> None:
     cfg = MarketMakingConfig(commission_pct=0.07)
     assert fee_on_notional(10_000.0, cfg) == pytest.approx(7.0)
+
+
+def test_as_half_spread_stays_economically_sane() -> None:
+    # At zero vol, liquidity term alone is a few bps — not thousands.
+    h0 = as_half_spread_bps(0.0, gamma=0.10, kappa=1.2, tau=12.0, liq_bps=10.0)
+    assert 0.0 < h0 < 5.0
+    h = as_half_spread_bps(0.005, gamma=0.10, kappa=1.2, tau=12.0, liq_bps=10.0)
+    assert 10.0 < h < 80.0
+    r = reservation_price(100.0, 0.5, 0.005, gamma=0.10, tau=12.0)
+    assert 95.0 < r < 100.0
 
 
 def test_quote_engine_refuses_when_halted() -> None:
@@ -58,6 +68,8 @@ def test_quote_at_flat_is_positive_edge() -> None:
     assert q.half_spread_bps >= cfg.required_half_spread_bps
     assert q.net_edge_bps_if_matched > 0
     assert q.bid < q.mid < q.ask
+    # Must not post absurd spreads (unit bug guard).
+    assert q.half_spread_bps < 200.0
 
 
 def test_inventory_buy_sell_round_trip_realizes() -> None:
@@ -73,14 +85,15 @@ def test_load_yaml_and_paper_sim_net_positive() -> None:
     cfg = load_mm_config("config/market_making.yaml")
     assert cfg.commission_pct == 0.07
     assert len(cfg.symbols) >= 10
-    assert all(":" not in s for s in cfg.symbols)  # spot only, no perp colon
+    assert all(":" not in s for s in cfg.symbols)
+    assert cfg.use_as_quotes is True
     cfg.sim.n_bars = 1500
     cfg.sim.seed = 42
     result, frame = run_paper_sim(cfg)
     assert result.n_buys + result.n_sells > 0
     assert result.avg_half_spread_bps >= cfg.required_half_spread_bps
+    assert result.avg_half_spread_bps < 200.0
     assert result.interpretation_allowed is False
-    # Under this paper fill model + positivity gate, equity should rise.
     assert result.net_positive is True
     assert frame["equity"].iloc[-1] > frame["equity"].iloc[0]
     assert "buy_size" in frame.columns and "sell_size" in frame.columns

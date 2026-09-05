@@ -1,4 +1,4 @@
-"""Paper simulator: GBM mid + queue-intensity fills + fees + adverse selection."""
+"""Paper simulator: GBM / historical mids + queue fills + fees + adverse selection."""
 
 from __future__ import annotations
 
@@ -46,7 +46,6 @@ def _gbm_path(
 
 
 def _fill_prob(mid: float, quote_px: float, half_bps: float, base_p: float) -> float:
-    """Maker-queue intensity: higher when mid is near the quote."""
     half = max(half_bps / 1e4, 1e-8)
     gap = abs(mid - quote_px) / mid
     return float(base_p * np.exp(-gap / half))
@@ -60,7 +59,6 @@ def run_mid_path_sim(
     timestamps: np.ndarray | None = None,
     notes: str | None = None,
 ) -> tuple[SimResult, pd.DataFrame]:
-    """Core MM loop over an arbitrary mid path (GBM or historical)."""
     mids = np.asarray(mids, dtype=float)
     if len(mids) < 2:
         raise ValueError("Need at least 2 mid bars")
@@ -124,6 +122,7 @@ def run_mid_path_sim(
             "sell_size": sell_size,
             "fees_cum": inv.fees_paid,
             "realized_pnl": inv.realized_pnl,
+            "sigma_bps": q.sigma_bps,
         }
         if timestamps is not None:
             row["timestamp"] = timestamps[i]
@@ -133,7 +132,7 @@ def run_mid_path_sim(
     ret = 100.0 * (final_eq - start_eq) / start_eq if start_eq else 0.0
     trades = inv.n_buys + inv.n_sells
     default_notes = (
-        f"Queue-fill MM. Gate half-spread>="
+        f"AS+fee-gate MM. Gate half-spread>="
         f"{cfg.required_half_spread_bps:.1f}bps "
         f"(fee {cfg.commission_bps:.1f}bps + buffer {cfg.edge_buffer_bps:.1f}bps). "
         "Not a live-edge claim."
@@ -167,7 +166,7 @@ def run_paper_sim(cfg: MarketMakingConfig) -> tuple[SimResult, pd.DataFrame]:
         mids,
         seed=sc.seed,
         notes=(
-            f"Paper GBM+queue fills. Gate half-spread>="
+            f"Paper GBM+AS quotes. Gate half-spread>="
             f"{cfg.required_half_spread_bps:.1f}bps "
             f"(fee {cfg.commission_bps:.1f}bps + buffer {cfg.edge_buffer_bps:.1f}bps). "
             "Not a live-edge claim."
@@ -184,7 +183,6 @@ def load_okx_mids(
     root: str | Path = "data",
     exchange_id: str = "okx",
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load OKX OHLCV closes as mids for [start, end_exclusive)."""
     base = symbol.replace("/", "_")
     path = Path(root) / exchange_id / timeframe / f"{base}.parquet"
     if not path.exists():
@@ -197,9 +195,7 @@ def load_okx_mids(
     sl = df.loc[mask].sort_values("timestamp")
     if len(sl) < 2:
         raise ValueError(f"Insufficient bars for {symbol} {start}→{end_exclusive}: {len(sl)}")
-    mids = sl["close"].to_numpy(dtype=float)
-    stamps = ts.loc[mask].sort_values().to_numpy()
-    return mids, stamps
+    return sl["close"].to_numpy(dtype=float), ts.loc[mask].sort_values().to_numpy()
 
 
 def run_month_sim(
@@ -211,12 +207,8 @@ def run_month_sim(
     timeframe: str = "4h",
     seed: int | None = None,
 ) -> tuple[SimResult, pd.DataFrame]:
-    """Run MM on historical OKX bars for one calendar month."""
     start = f"{year:04d}-{month:02d}-01"
-    if month == 12:
-        end = f"{year + 1:04d}-01-01"
-    else:
-        end = f"{year:04d}-{month + 1:02d}-01"
+    end = f"{year + 1:04d}-01-01" if month == 12 else f"{year:04d}-{month + 1:02d}-01"
     mids, stamps = load_okx_mids(
         symbol,
         timeframe=timeframe,
@@ -225,15 +217,13 @@ def run_month_sim(
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
-    # Scale max inventory to ~$10k notional so clip sizes are comparable across prices.
     mid0 = float(mids[0])
     if mid0 > 0:
         cfg = cfg.model_copy(update={"max_inventory": 10_000.0 / mid0})
     notes = (
         f"Historical {symbol} {timeframe} {start}→{end} on {cfg.exchange_id}. "
         f"n_bars={len(mids)}. max_inv≈$10k/mid0={cfg.max_inventory:.6g}. "
-        f"Queue fills + fee {cfg.commission_pct}%/side. "
-        "Not a live-edge claim."
+        f"AS quotes + fee {cfg.commission_pct}%/side. Not a live-edge claim."
     )
     return run_mid_path_sim(cfg, mids, seed=seed, timestamps=stamps, notes=notes)
 

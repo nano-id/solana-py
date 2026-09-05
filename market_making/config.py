@@ -20,7 +20,7 @@ class SimConfig(BaseModel):
 
 
 class MarketMakingConfig(BaseModel):
-    """Spot MM. commission_pct is percent points: 0.07 → 0.07% = 7 bps/side."""
+    """Spot MM. commission_pct: 0.07 → 0.07% = 7 bps/side."""
 
     symbols: list[str] = Field(
         default_factory=lambda: [
@@ -46,6 +46,14 @@ class MarketMakingConfig(BaseModel):
     inventory_halt_frac: float = Field(default=0.95, gt=0, le=1)
     vol_lookback: int = Field(default=48, ge=5)
     vol_spread_mult: float = Field(default=0.35, ge=0)
+    gamma: float = Field(default=0.10, gt=0)
+    kappa: float = Field(default=1.2, gt=0)
+    tau_bars: float = Field(default=12.0, gt=0)
+    ewma_halflife: float = Field(default=24.0, gt=0)
+    size_eta: float = Field(default=2.5, ge=0)
+    adverse_vol_mult: float = Field(default=0.25, ge=0)
+    liq_bps: float = Field(default=10.0, ge=0)
+    use_as_quotes: bool = True
     sim: SimConfig = Field(default_factory=SimConfig)
     interpretation_allowed: bool = False
     storage_root: str = "data"

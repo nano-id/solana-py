@@ -1,27 +1,24 @@
-# Spot-only market making (NO futures / perps).
-# commission_pct: 0.07 means 0.07% = 7 bps per filled side.
-
 exchange:
   id: okx
-  fallbacks: [bybit, binance]
+  fallbacks:
+  - bybit
+  - binance
   quote: USDT
   market_type: spot
-
 storage:
   root: data
-
 market_making:
   symbols:
-    - BTC/USDT
-    - ETH/USDT
-    - BNB/USDT
-    - SOL/USDT
-    - XRP/USDT
-    - DOGE/USDT
-    - ADA/USDT
-    - TRX/USDT
-    - LTC/USDT
-    - SUI/USDT
+  - BTC/USDT
+  - ETH/USDT
+  - BNB/USDT
+  - SOL/USDT
+  - XRP/USDT
+  - DOGE/USDT
+  - ADA/USDT
+  - TRX/USDT
+  - LTC/USDT
+  - SUI/USDT
   commission_pct: 0.07
   edge_buffer_bps: 5.0
   min_half_spread_bps: 12.0
@@ -29,15 +26,23 @@ market_making:
   target_inventory: 0.0
   max_inventory: 1.0
   size_frac_of_max: 0.1
-  inventory_halt_frac: 0.95
+  inventory_halt_frac: 0.8
   vol_lookback: 48
-  vol_spread_mult: 0.35
+  vol_spread_mult: 0.25
+  gamma: 0.12
+  kappa: 0.8
+  tau_bars: 8.0
+  ewma_halflife: 24.0
+  size_eta: 3.5
+  adverse_vol_mult: 0.45
+  liq_bps: 6.0
+  use_as_quotes: true
   interpretation_allowed: false
   sim:
     n_bars: 2000
     seed: 42
     mid0: 100.0
     ann_vol: 0.55
-    fill_prob: 0.80
+    fill_prob: 0.8
     adverse_frac: 0.15
     bars_per_year: 8760
