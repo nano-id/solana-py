@@ -124,8 +124,8 @@ def run_adf_filter(
             "No z-signals, no PnL, no 'edge exists' claim. "
             "Effective independent-signal count still unknown until Step 5e clustering."
         ),
-        "next_step": 4,
-        "next_step_name": "residual_zscore_signal_skeleton",
+        "next_step": "5e",
+        "next_step_name": "residual_corr_clustering_on_adf_survivors",
     }
 
 

@@ -12,6 +12,7 @@ from pairs_trading.factor_beta.beta_regime import (
     analyze_beta_sign_flip,
     save_beta_regime_report,
 )
+from pairs_trading.factor_beta.clustering import cluster_residuals, save_cluster_report
 from pairs_trading.factor_beta.config import load_factor_beta_config
 from pairs_trading.factor_beta.data import (
     alignment_transparency,
@@ -19,6 +20,11 @@ from pairs_trading.factor_beta.data import (
     save_inventory,
 )
 from pairs_trading.factor_beta.factor_model import run_step2_all_lookbacks
+from pairs_trading.factor_beta.signals import (
+    run_cluster_signal_skeleton,
+    run_synthetic_ou_mechanical_test,
+    save_step4_report,
+)
 from pairs_trading.factor_beta.stationarity import run_adf_filter, save_adf_report
 
 
@@ -63,6 +69,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="ADF stationarity filter on residuals (candidate gate)",
     )
     s3.add_argument("--out", type=Path, default=None)
+
+    s5e = sub.add_parser(
+        "step5e-cluster",
+        help="Rule 5e: cluster ADF survivors by residual |corr| (before Step 4)",
+    )
+    s5e.add_argument("--out", type=Path, default=None)
+
+    s4 = sub.add_parser(
+        "step4-signals",
+        help="Z-score skeleton: one line per Rule-5e cluster (thresholds uncalibrated)",
+    )
+    s4.add_argument("--out", type=Path, default=None)
+    s4.add_argument(
+        "--skip-ou-test",
+        action="store_true",
+        help="Skip synthetic OU mechanical wiring check",
+    )
     return p
 
 
@@ -109,6 +132,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "step3-adf":
         report = run_adf_filter(cfg)
         path = save_adf_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step5e-cluster":
+        report = cluster_residuals(cfg)
+        path = save_cluster_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step4-signals":
+        report = run_cluster_signal_skeleton(cfg)
+        if not args.skip_ou_test:
+            report["synthetic_ou_mechanical"] = run_synthetic_ou_mechanical_test(cfg)
+        path = save_step4_report(report, out)
         print(json.dumps(report, indent=2))
         print(f"\nWrote {path}", file=sys.stderr)
         return 0
