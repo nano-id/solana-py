@@ -61,6 +61,22 @@ class ScreenConfig(BaseModel):
     min_depth_usdt: float = Field(default=10_000.0, ge=0)
     # Primary rate column: next settlement (funding_rate). sett is tie-break only.
     rate_col: str = "funding_rate"
+    # How many recent snapshots to score interest-floor stickiness.
+    floor_lookback: int = Field(default=12, ge=1, le=500)
+    # Rank real premium (non-floor) above structural interest-floor names.
+    prefer_non_floor: bool = True
+
+
+class EntryConfig(BaseModel):
+    """Step 3 paper / small-notional delta-neutral entry knobs."""
+
+    depth_fraction: float = Field(default=0.05, gt=0, le=1.0)
+    max_notional_usdt: float = Field(default=100.0, gt=0)
+    min_notional_usdt: float = Field(default=10.0, ge=0)
+    require_non_floor: bool = True
+    flatten_unpaired: bool = True
+    # Paper mode only until live wiring is added.
+    mode: Literal["paper", "live"] = "paper"
 
 
 class FundingArbAppConfig(BaseModel):
@@ -75,6 +91,7 @@ class FundingArbAppConfig(BaseModel):
     collector: CollectorConfig = Field(default_factory=CollectorConfig)
     depth: DepthConfig = Field(default_factory=DepthConfig)
     screen: ScreenConfig = Field(default_factory=ScreenConfig)
+    entry: EntryConfig = Field(default_factory=EntryConfig)
 
     @field_validator("exchange")
     @classmethod

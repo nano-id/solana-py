@@ -49,3 +49,13 @@ depth:
 screen:
   min_depth_usdt: 10000   # drop names thinner than this (Δ-neutral book)
   rate_col: funding_rate  # next settlement; sett_funding_rate is tie-break only
+  floor_lookback: 12      # snapshots used for floor_persistence
+  prefer_non_floor: true  # real premium ranks above OKX interest floor
+
+entry:
+  mode: paper
+  depth_fraction: 0.05    # size = fraction of depth_usdt
+  max_notional_usdt: 100  # paper / small-capital cap
+  min_notional_usdt: 10
+  require_non_floor: true # do not enter structural interest-floor names first
+  flatten_unpaired: true  # auto-flatten if one leg fills and the other does not

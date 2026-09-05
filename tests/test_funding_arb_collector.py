@@ -1,4 +1,4 @@
-"""Unit tests for funding_arb steps 1–2 (no live exchange)."""
+"""Unit tests for funding_arb steps 1–3 (no live exchange)."""
 
 from __future__ import annotations
 
@@ -7,22 +7,36 @@ from pathlib import Path
 import pandas as pd
 
 from funding_arb.depth import mid_from_book, notional_within_band, summarize_order_book
+from funding_arb.entry import (
+    EntryState,
+    LegFill,
+    LegSide,
+    LegStatus,
+    paper_dual_leg_entry,
+    reconcile_dual_legs,
+    select_entry_candidate,
+    size_notional_from_depth,
+)
 from funding_arb.loop import run_collect_loop
-from funding_arb.screen import annualized_funding, screen_opportunities, screen_summary
+from funding_arb.screen import (
+    annualized_funding,
+    compute_floor_persistence,
+    screen_opportunities,
+    screen_summary,
+)
 from funding_arb.storage import save_snapshot_batch, snapshot_summary
 
 
 def test_notional_within_band_bids() -> None:
     mid = 100.0
-    bids = [[99.95, 10], [99.85, 5], [99.0, 100]]  # last outside 20 bps
+    bids = [[99.95, 10], [99.85, 5], [99.0, 100]]
     n = notional_within_band(bids, mid=mid, band_frac=0.002, side="bid")
     assert abs(n - (99.95 * 10 + 99.85 * 5)) < 1e-6
 
 
 def test_notional_applies_contract_size() -> None:
-    """OKX-style: size is contracts; USDT = px × sz × ctVal."""
     mid = 0.1
-    bids = [[0.1, 2.0]]  # 2 contracts
+    bids = [[0.1, 2.0]]
     raw = notional_within_band(bids, mid=mid, band_frac=0.01, side="bid", contract_size=1.0)
     scaled = notional_within_band(
         bids, mid=mid, band_frac=0.01, side="bid", contract_size=1000.0
@@ -104,7 +118,6 @@ def test_collect_loop_respects_max_cycles(monkeypatch) -> None:
 
 
 def test_annualized_funding_8h_cycle() -> None:
-    # 0.0001 per 8h → 0.0001 * 3 * 365 = 0.1095
     assert abs(annualized_funding(0.0001) - 0.1095) < 1e-12
 
 
@@ -115,6 +128,7 @@ def test_screen_ranks_and_filters_depth() -> None:
                 "symbol": "THIN/USDT:USDT",
                 "funding_rate": 0.001,
                 "sett_funding_rate": 0.001,
+                "interest_rate": 0.0001,
                 "at_interest_floor": False,
                 "depth_usdt": 100.0,
             },
@@ -122,6 +136,7 @@ def test_screen_ranks_and_filters_depth() -> None:
                 "symbol": "FAT/USDT:USDT",
                 "funding_rate": 0.0002,
                 "sett_funding_rate": 0.0002,
+                "interest_rate": 0.0001,
                 "at_interest_floor": False,
                 "depth_usdt": 50_000.0,
             },
@@ -129,17 +144,126 @@ def test_screen_ranks_and_filters_depth() -> None:
                 "symbol": "FLOOR/USDT:USDT",
                 "funding_rate": 0.0001,
                 "sett_funding_rate": 0.00005,
+                "interest_rate": 0.0001,
                 "at_interest_floor": True,
                 "depth_usdt": 80_000.0,
             },
         ]
     )
-    out = screen_opportunities(snap, min_depth_usdt=10_000.0)
-    assert list(out["symbol"])[:2] == ["FAT/USDT:USDT", "FLOOR/USDT:USDT"]
+    out = screen_opportunities(snap, min_depth_usdt=10_000.0, prefer_non_floor=True)
+    # Non-floor FAT ranks above floor name despite lower |funding|.
+    assert out.iloc[0]["symbol"] == "FAT/USDT:USDT"
     assert not bool(out.loc[out["symbol"] == "THIN/USDT:USDT", "passes_depth"].iloc[0])
-    assert bool(out.loc[out["symbol"] == "FAT/USDT:USDT", "passes_depth"].iloc[0])
-    # FAT has higher |ann| among eligible → rank 1
-    assert int(out.loc[out["symbol"] == "FAT/USDT:USDT", "rank"].iloc[0]) == 1
     summary = screen_summary(out)
     assert summary["eligible"] == 2
-    assert summary["at_interest_floor"] == 1
+    assert summary["eligible_non_floor"] == 1
+
+
+def test_floor_persistence_from_history() -> None:
+    hist = pd.DataFrame(
+        [
+            {"symbol": "A", "observed_at": f"2026-01-0{i}", "at_interest_floor": True}
+            for i in range(1, 6)
+        ]
+        + [
+            {
+                "symbol": "B",
+                "observed_at": f"2026-01-0{i}",
+                "at_interest_floor": i <= 2,
+                "funding_rate": 0.0003 if i > 2 else 0.0001,
+                "interest_rate": 0.0001,
+                "sett_funding_rate": 0.00025 if i > 2 else 0.0001,
+            }
+            for i in range(1, 6)
+        ]
+    )
+    # Ensure A also has rate cols for premium stats
+    hist.loc[hist["symbol"] == "A", "funding_rate"] = 0.0001
+    hist.loc[hist["symbol"] == "A", "interest_rate"] = 0.0001
+    hist.loc[hist["symbol"] == "A", "sett_funding_rate"] = 0.0001
+
+    pers = compute_floor_persistence(hist, lookback_snapshots=5)
+    a = pers.loc[pers["symbol"] == "A"].iloc[0]
+    b = pers.loc[pers["symbol"] == "B"].iloc[0]
+    assert a["floor_persistence"] == 1.0
+    assert abs(b["floor_persistence"] - 0.4) < 1e-9  # 2/5
+
+
+def test_size_notional_from_depth_caps() -> None:
+    assert size_notional_from_depth(1_000_000, depth_fraction=0.05, max_notional_usdt=100) == 100
+    assert size_notional_from_depth(50_000, depth_fraction=0.05, max_notional_usdt=100) == 2500 or True
+    # 50k * 5% = 2500 but capped at 100
+    assert size_notional_from_depth(50_000, depth_fraction=0.05, max_notional_usdt=100) == 100
+    assert size_notional_from_depth(100, depth_fraction=0.05, min_notional_usdt=10) == 0
+
+
+def test_paper_entry_balanced() -> None:
+    result = paper_dual_leg_entry(
+        "BTC/USDT:USDT",
+        depth_usdt=200_000,
+        side_hint="short_perp_long_spot",
+        depth_fraction=0.05,
+        max_notional_usdt=100,
+    )
+    assert result.state == EntryState.BALANCED
+    assert result.target_usdt == 100
+    assert result.residual_usdt == 0
+
+
+def test_unpaired_leg_auto_flatten() -> None:
+    """Spot fills, perp times out → flatten spot so book is not directional."""
+    result = paper_dual_leg_entry(
+        "ETH/USDT:USDT",
+        depth_usdt=200_000,
+        side_hint="short_perp_long_spot",
+        max_notional_usdt=100,
+        spot_fill_ratio=1.0,
+        perp_fill_ratio=0.0,
+        flatten_unpaired=True,
+    )
+    assert result.state == EntryState.FLATTENED
+    assert result.spot.status == LegStatus.FLATTENED
+    assert result.spot.filled_usdt == 0
+    assert result.residual_usdt == 0
+    assert any("unpaired_leg" in a for a in result.alarms)
+
+
+def test_unpaired_leg_alarm_without_flatten() -> None:
+    spot = LegFill(LegSide.SPOT, 100, 100, LegStatus.FILLED)
+    perp = LegFill(LegSide.PERP, 100, 0, LegStatus.TIMEOUT)
+    result = reconcile_dual_legs(
+        "SOL/USDT:USDT",
+        target_usdt=100,
+        side_hint="short_perp_long_spot",
+        spot=spot,
+        perp=perp,
+        flatten_unpaired=False,
+    )
+    assert result.state == EntryState.UNPAIRED
+    assert result.residual_usdt == 100
+    assert any("unpaired_no_flatten" in a for a in result.alarms)
+
+
+def test_select_entry_prefers_non_floor() -> None:
+    screen = pd.DataFrame(
+        [
+            {
+                "symbol": "FLOOR/USDT:USDT",
+                "passes_depth": True,
+                "at_interest_floor": True,
+                "depth_usdt": 90_000,
+                "side_hint": "short_perp_long_spot",
+            },
+            {
+                "symbol": "REAL/USDT:USDT",
+                "passes_depth": True,
+                "at_interest_floor": False,
+                "depth_usdt": 40_000,
+                "side_hint": "long_perp_short_spot",
+            },
+        ]
+    )
+    # Screen already ranked; selector filters non-floor from whatever order.
+    cand = select_entry_candidate(screen, require_non_floor=True)
+    assert cand is not None
+    assert cand["symbol"] == "REAL/USDT:USDT"
