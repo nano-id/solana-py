@@ -27,26 +27,26 @@ market_making:
   max_inventory: 1.0
   size_frac_of_max: 0.1
   inventory_halt_frac: 0.8
-  vol_lookback: 48
+  vol_lookback: 192
   vol_spread_mult: 0.25
-  gamma: 0.12
+  gamma: 0.18
   kappa: 0.8
-  tau_bars: 8.0
-  ewma_halflife: 24.0
-  size_eta: 3.5
+  tau_bars: 48.0
+  ewma_halflife: 96.0
+  size_eta: 2.5
   adverse_vol_mult: 0.45
   liq_bps: 6.0
   use_as_quotes: true
   portfolio_initial_equity: 1000.0
   portfolio_position_frac: 1.0
   realtime_poll_sec: 1.0
-  portfolio_flat_eps: 1.0e-8
+  portfolio_flat_eps: 1.0e-08
   interpretation_allowed: false
   sim:
     n_bars: 2000
     seed: 42
     mid0: 100.0
     ann_vol: 0.55
-    fill_prob: 0.8
-    adverse_frac: 0.15
+    fill_prob: 0.25
+    adverse_frac: 0.55
     bars_per_year: 8760

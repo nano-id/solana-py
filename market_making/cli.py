@@ -18,6 +18,11 @@ from market_making.portfolio import run_portfolio_month, save_portfolio_artifact
 from market_making.realtime import run_live_paper_session, run_realtime_paper, save_realtime_artifacts
 from market_making.feed import BookSnapshot
 from market_making.hist_bbo import run_month_events_paper, save_month_events_artifacts
+from market_making.calibrate_hourly import (
+    calibrate_hourly,
+    fifo_hold_hours_from_fills,
+    save_hourly_calib,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--year", type=int, default=2026)
     m.add_argument("--month", type=int, default=1)
     m.add_argument("--symbol", default="BTC/USDT")
-    m.add_argument("--timeframe", default="4h")
+    m.add_argument("--timeframe", default="1h")
     m.add_argument("--seed", type=int, default=42)
     m.add_argument("--no-persist", action="store_true")
 
@@ -58,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pf.add_argument("--year", type=int, default=2024)
     pf.add_argument("--month", type=int, default=2)
-    pf.add_argument("--timeframe", default="4h")
+    pf.add_argument("--timeframe", default="1h")
     pf.add_argument("--seed", type=int, default=42)
     pf.add_argument("--equity", type=float, default=None, help="Initial USDT wallet (default: config)")
     pf.add_argument("--no-persist", action="store_true")
@@ -72,6 +77,20 @@ def build_parser() -> argparse.ArgumentParser:
     lp.add_argument("--seed", type=int, default=42)
     lp.add_argument("--no-persist", action="store_true")
     lp.add_argument("--synthetic", action="store_true", help="Synthetic BBO (offline)")
+
+    ch = sub.add_parser(
+        "calibrate-hourly",
+        help="Re-optimize AS params on 1h candles (IS→OOS); update-friendly JSON",
+    )
+    ch.add_argument("--timeframe", default="1h")
+    ch.add_argument("--seed", type=int, default=42)
+    ch.add_argument("--equity", type=float, default=1000.0)
+    ch.add_argument("--no-persist", action="store_true")
+    ch.add_argument(
+        "--write-config",
+        action="store_true",
+        help="Write selected params into --config YAML market_making block",
+    )
 
     me = sub.add_parser(
         "simulate-month-events",
@@ -310,6 +329,38 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(json.dumps({**result.__dict__, "artifacts": paths}, indent=2, default=str))
         return 0 if result.n_entries > 0 else 3
+
+    if args.command == "calibrate-hourly":
+        from market_making.calibrate_hourly import write_params_to_yaml
+
+        result = calibrate_hourly(
+            cfg,
+            timeframe=args.timeframe,
+            seed=args.seed,
+            portfolio_equity=args.equity,
+        )
+        paths: dict = {}
+        if not args.no_persist:
+            paths = save_hourly_calib(
+                result,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename="hourly_calib_1h_202503",
+            )
+        if args.write_config:
+            write_params_to_yaml(args.config, result.selected_params)
+            paths["config"] = args.config
+        print(
+            json.dumps(
+                {
+                    **{k: getattr(result, k) for k in result.__dataclass_fields__},
+                    "artifacts": paths,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
 
     if args.command == "simulate-month-events":
         result, rows, meta = run_month_events_paper(
