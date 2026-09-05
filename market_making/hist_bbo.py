@@ -215,21 +215,30 @@ def save_month_events_artifacts(
     root: str | Path | None = None,
     exchange_id: str = "okx",
     basename: str,
+    persist_rows: bool = False,
 ) -> dict[str, str]:
-    paths = save_realtime_artifacts(
-        result,
-        rows,
-        root=root,
-        exchange_id=exchange_id,
-        basename=basename,
-    )
-    out = Path(root or "data") / exchange_id / "market_making"
-    meta_path = out / f"{basename}_meta.json"
+    """Persist summary+meta. Skip full event CSV by default (can be tens of MB)."""
     import json
+    from dataclasses import asdict
 
-    payload = {**meta, "result": {k: v for k, v in result.__dict__.items() if k != "holds_sec"}}
-    # keep holds_sec stats only (full list can be huge)
-    payload["result"]["n_holds"] = result.n_holds
+    out = Path(root or "data") / exchange_id / "market_making"
+    out.mkdir(parents=True, exist_ok=True)
+    summary = out / f"{basename}.json"
+    slim = {k: v for k, v in asdict(result).items() if k != "holds_sec"}
+    slim["holds_sec_sample"] = list(result.holds_sec[:50])
+    summary.write_text(json.dumps(slim, indent=2, default=str), encoding="utf-8")
+    paths: dict[str, str] = {"summary": str(summary)}
+
+    if persist_rows and rows:
+        csv = out / f"{basename}.csv"
+        pd.DataFrame(rows).to_csv(csv, index=False)
+        paths["csv"] = str(csv)
+
+    meta_path = out / f"{basename}_meta.json"
+    payload = {
+        **meta,
+        "result": {k: v for k, v in result.__dict__.items() if k != "holds_sec"},
+    }
     meta_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     paths["meta"] = str(meta_path)
     return paths
