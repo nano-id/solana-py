@@ -13,7 +13,7 @@ from market_making.config import load_mm_config
 from market_making.engine import QuoteEngine
 from market_making.fees import is_positive_half_spread, round_trip_net_edge_bps
 from market_making.inventory import InventoryState
-from market_making.simulator import run_paper_sim, save_sim_artifacts
+from market_making.simulator import run_month_sim, run_paper_sim, save_sim_artifacts
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +36,17 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--n-bars", type=int, default=None)
     s.add_argument("--seed", type=int, default=None)
     s.add_argument("--no-persist", action="store_true")
+
+    m = sub.add_parser(
+        "simulate-month",
+        help="Historical OKX spot MM over a calendar month (default: January)",
+    )
+    m.add_argument("--year", type=int, default=2026)
+    m.add_argument("--month", type=int, default=1)
+    m.add_argument("--symbol", default="BTC/USDT")
+    m.add_argument("--timeframe", default="4h")
+    m.add_argument("--seed", type=int, default=42)
+    m.add_argument("--no-persist", action="store_true")
     return p
 
 
@@ -121,6 +132,51 @@ def main(argv: list[str] | None = None) -> int:
                 exchange_id=cfg.exchange_id,
             )
         print(json.dumps({**result.__dict__, "artifacts": paths}, indent=2))
+        if result.n_buys + result.n_sells == 0:
+            return 3
+        return 0
+
+    if args.command == "simulate-month":
+        result, frame = run_month_sim(
+            cfg,
+            year=args.year,
+            month=args.month,
+            symbol=args.symbol,
+            timeframe=args.timeframe,
+            seed=args.seed,
+        )
+        paths: dict[str, str] = {}
+        if not args.no_persist:
+            tag = f"{args.symbol.replace('/', '_')}_{args.year:04d}{args.month:02d}"
+            paths = save_sim_artifacts(
+                result,
+                frame,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename=f"hist_{tag}",
+            )
+            # Also refresh "latest" pointer for convenience.
+            save_sim_artifacts(
+                result,
+                frame,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename="paper_sim_latest",
+            )
+        print(
+            json.dumps(
+                {
+                    "year": args.year,
+                    "month": args.month,
+                    "symbol": args.symbol,
+                    "timeframe": args.timeframe,
+                    **result.__dict__,
+                    "artifacts": paths,
+                },
+                indent=2,
+                default=str,
+            )
+        )
         if result.n_buys + result.n_sells == 0:
             return 3
         return 0
