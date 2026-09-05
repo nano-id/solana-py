@@ -12,6 +12,7 @@ from pairs_trading.factor_beta.beta_regime import (
     analyze_beta_sign_flip,
     save_beta_regime_report,
 )
+from pairs_trading.factor_beta.c1_diagnostic import run_c1_diagnostic, save_c1_diagnostic
 from pairs_trading.factor_beta.clustering import cluster_residuals, save_cluster_report
 from pairs_trading.factor_beta.config import load_factor_beta_config
 from pairs_trading.factor_beta.data import (
@@ -26,6 +27,10 @@ from pairs_trading.factor_beta.signals import (
     save_step4_report,
 )
 from pairs_trading.factor_beta.stationarity import run_adf_filter, save_adf_report
+from pairs_trading.factor_beta.walkforward import (
+    run_walk_forward_all_lines,
+    save_walk_forward_report,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -86,6 +91,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip synthetic OU mechanical wiring check",
     )
+
+    sc1 = sub.add_parser(
+        "step-c1-diagnostic",
+        help="C1 commonality + equal-weight composite residual vs ADA rep (pre-Step 6)",
+    )
+    sc1.add_argument("--out", type=Path, default=None)
+
+    s6 = sub.add_parser(
+        "step6-walkforward",
+        help="Per-line walk-forward z calibration (Rule 5b hard gate + plateau)",
+    )
+    s6.add_argument("--out", type=Path, default=None)
     return p
 
 
@@ -148,6 +165,20 @@ def main(argv: list[str] | None = None) -> int:
         if not args.skip_ou_test:
             report["synthetic_ou_mechanical"] = run_synthetic_ou_mechanical_test(cfg)
         path = save_step4_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step-c1-diagnostic":
+        report = run_c1_diagnostic(cfg)
+        path = save_c1_diagnostic(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step6-walkforward":
+        report = run_walk_forward_all_lines(cfg)
+        path = save_walk_forward_report(report, out)
         print(json.dumps(report, indent=2))
         print(f"\nWrote {path}", file=sys.stderr)
         return 0
