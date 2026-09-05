@@ -2,6 +2,21 @@
 
 Kripto piyasaları için istatistiksel / mekanik arbitraj altyapısı.
 
+## Spot market making (vadeli yok)
+
+Komisyon **0.07%** (= 7 bps/side). Half-spread, ücret + buffer’ı geçmezse kotasyon yok (positivity gate). Paper sim canlı edge iddiası değildir.
+
+```bash
+pip install -e ".[dev]"
+spot-mm explain-gate
+spot-mm quote --mid 100
+spot-mm simulate
+```
+
+```
+data/{exchange}/market_making/paper_sim_latest.{json,parquet,csv}
+```
+
 **Öncelik (2026-09):** Modül 1 — perpetual funding-rate harvest (delta-nötr).  
 Modül 2 (kointegrasyon tarama) araştırma olarak **kapatıldı** — kod referans olarak duruyor; bu venue/dönemde çoklu-test + bağımlılık-sağlam kointegre çift bulunamadı.
 
