@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pairs-trading"
+version = "0.1.0"
+description = "Cointegration-based statistical arbitrage system for crypto markets"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ccxt>=4.4.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "pyarrow>=15.0.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "PyYAML>=6.0.1",
+    "statsmodels>=0.14.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+]
+
+[project.scripts]
+pairs-data = "pairs_trading.data.cli:main"
+pairs-coint = "pairs_trading.cointegration.cli:main"
+pairs-funding = "pairs_trading.funding.cli:main"
+pairs-factor = "pairs_trading.factor_beta.cli:main"
+funding-arb = "funding_arb.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pairs_trading*", "funding_arb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: tests that hit live exchanges / require network",
+]
