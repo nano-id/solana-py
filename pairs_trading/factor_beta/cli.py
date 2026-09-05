@@ -8,6 +8,11 @@ import logging
 import sys
 from pathlib import Path
 
+from pairs_trading.factor_beta.audits import (
+    audit_c1_selection_leakage,
+    audit_c3_plateau_width,
+    save_audit_report,
+)
 from pairs_trading.factor_beta.beta_regime import (
     analyze_beta_sign_flip,
     save_beta_regime_report,
@@ -21,6 +26,7 @@ from pairs_trading.factor_beta.data import (
     save_inventory,
 )
 from pairs_trading.factor_beta.factor_model import run_step2_all_lookbacks
+from pairs_trading.factor_beta.rule5d import run_rule5d, save_rule5d_report
 from pairs_trading.factor_beta.signals import (
     run_cluster_signal_skeleton,
     run_synthetic_ou_mechanical_test,
@@ -103,6 +109,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Per-line walk-forward z calibration (Rule 5b hard gate + plateau)",
     )
     s6.add_argument("--out", type=Path, default=None)
+
+    saud = sub.add_parser(
+        "step-audits",
+        help="C1 selection-leakage audit + C3 plateau-width audit (controls)",
+    )
+    saud.add_argument("--out", type=Path, default=None)
+
+    s5d = sub.add_parser(
+        "step5d-dual-null",
+        help="Rule 5d: dual-null + Benjamini-Yekutieli on C1/C3 (skip C2)",
+    )
+    s5d.add_argument("--out", type=Path, default=None)
+    s5d.add_argument("--n-sims", type=int, default=80)
+    s5d.add_argument("--workers", type=int, default=4)
     return p
 
 
@@ -179,6 +199,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "step6-walkforward":
         report = run_walk_forward_all_lines(cfg)
         path = save_walk_forward_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step-audits":
+        c1 = audit_c1_selection_leakage(cfg)
+        c3 = audit_c3_plateau_width(cfg)
+        p1 = save_audit_report(c1, out, "step_c1_selection_leakage_audit.json")
+        p3 = save_audit_report(c3, out, "step_c3_plateau_width_audit.json")
+        bundle = {
+            "interpretation_allowed": False,
+            "c1_selection_leakage_audit": c1,
+            "c3_plateau_width_audit": c3,
+        }
+        print(json.dumps(bundle, indent=2))
+        print(f"\nWrote {p1}\nWrote {p3}", file=sys.stderr)
+        return 0
+
+    if args.command == "step5d-dual-null":
+        report = run_rule5d(cfg, n_sims=int(args.n_sims), max_workers=int(args.workers))
+        path = save_rule5d_report(report, out)
         print(json.dumps(report, indent=2))
         print(f"\nWrote {path}", file=sys.stderr)
         return 0
