@@ -59,3 +59,12 @@ entry:
   min_notional_usdt: 10
   require_non_floor: true # do not enter structural interest-floor names first
   flatten_unpaired: true  # auto-flatten if one leg fills and the other does not
+
+rotation:
+  min_edge_multiple: 3.0  # new |premium| must be ≥ 3× current
+  rotation_cost: 0.004    # assumed ~0.4% round-trip (informational)
+  require_non_floor: true
+
+exit:
+  exit_on_adverse_funding: true  # funding sign no longer pays the side
+  exit_on_floor: true            # interest-floor = premium gone

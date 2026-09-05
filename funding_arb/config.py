@@ -79,6 +79,22 @@ class EntryConfig(BaseModel):
     mode: Literal["paper", "live"] = "paper"
 
 
+class RotationConfig(BaseModel):
+    """Step 4 rotation gate (non-floor premium multiple)."""
+
+    min_edge_multiple: float = Field(default=3.0, gt=1.0)
+    # Assumed round-trip cost fraction for gross-vs-net honesty (not a trigger).
+    rotation_cost: float = Field(default=0.004, ge=0.0, le=0.05)
+    require_non_floor: bool = True
+
+
+class ExitConfig(BaseModel):
+    """Step 5 exit triggers."""
+
+    exit_on_adverse_funding: bool = True
+    exit_on_floor: bool = True
+
+
 class FundingArbAppConfig(BaseModel):
     exchange: ExchangeConfig = Field(
         default_factory=lambda: ExchangeConfig(
@@ -92,6 +108,8 @@ class FundingArbAppConfig(BaseModel):
     depth: DepthConfig = Field(default_factory=DepthConfig)
     screen: ScreenConfig = Field(default_factory=ScreenConfig)
     entry: EntryConfig = Field(default_factory=EntryConfig)
+    rotation: RotationConfig = Field(default_factory=RotationConfig)
+    exit: ExitConfig = Field(default_factory=ExitConfig)
 
     @field_validator("exchange")
     @classmethod
