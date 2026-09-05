@@ -94,6 +94,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     y.add_argument("--from-latest", action="store_true", default=True)
     y.add_argument("--position-json", default=None, help="Optional open PaperPosition JSON path")
+
+    b = sub.add_parser(
+        "backfill",
+        help="Multi-day observation backfill from funding history + paper replay",
+    )
+    b.add_argument("--start", required=True, help="YYYY-MM-DD (inclusive)")
+    b.add_argument("--end", required=True, help="YYYY-MM-DD (exclusive)")
+    b.add_argument("--exchange-id", default="okx")
+    b.add_argument("--source", choices=["local", "live"], default="local")
+    b.add_argument("--no-replay", action="store_true", help="Skip paper journal replay")
+    b.add_argument(
+        "--keep-history",
+        action="store_true",
+        help="Append to history instead of replacing observation window",
+    )
     return p
 
 
@@ -385,6 +400,38 @@ def main(argv: list[str] | None = None) -> int:
             print("Position cleared")
         return 0
 
+    if args.command == "backfill":
+        import json as _json
+        from funding_arb.backfill import run_observation_backfill
+
+        summary = run_observation_backfill(
+            start=args.start,
+            end=args.end,
+            config=config,
+            exchange_id=args.exchange_id,
+            source=args.source,
+            replace_history=not args.keep_history,
+            replay=not args.no_replay,
+        )
+        print("=== OBSERVATION BACKFILL ===")
+        print(_json.dumps(summary, indent=2, default=str))
+        # Always emit report after backfill so readiness is visible.
+        report = build_observation_report(
+            root=config.storage.root,
+            exchange_id=args.exchange_id,
+            floor_lookback=config.observation.floor_lookback,
+            min_days=float(config.observation.min_days),
+            min_settlements=config.observation.min_settlements,
+            settlements_per_day=config.collector.settlements_per_day,
+        )
+        print("=== OBSERVATION REPORT ===")
+        print(_json.dumps(report, indent=2))
+        if args.persist if hasattr(args, "persist") else True:
+            path = save_observation_report(
+                report, root=config.storage.root, exchange_id=args.exchange_id
+            )
+            print("Wrote:", path)
+        return 0 if report["readiness"]["ready"] else 3
 
     build_parser().error(f"Unknown command: {args.command}")
     return 2
