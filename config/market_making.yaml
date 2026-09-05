@@ -16,7 +16,7 @@ market_making:
   - XRP/USDT
   - DOGE/USDT
   - ADA/USDT
-  - TRX/USDT
+  - UNI/USDT
   - LTC/USDT
   - SUI/USDT
   commission_pct: 0.07
@@ -37,6 +37,9 @@ market_making:
   adverse_vol_mult: 0.45
   liq_bps: 6.0
   use_as_quotes: true
+  portfolio_initial_equity: 1000.0
+  portfolio_position_frac: 1.0
+  portfolio_flat_eps: 1.0e-8
   interpretation_allowed: false
   sim:
     n_bars: 2000

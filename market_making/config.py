@@ -31,7 +31,7 @@ class MarketMakingConfig(BaseModel):
             "XRP/USDT",
             "DOGE/USDT",
             "ADA/USDT",
-            "TRX/USDT",
+            "UNI/USDT",
             "LTC/USDT",
             "SUI/USDT",
         ]
@@ -54,6 +54,9 @@ class MarketMakingConfig(BaseModel):
     adverse_vol_mult: float = Field(default=0.25, ge=0)
     liq_bps: float = Field(default=10.0, ge=0)
     use_as_quotes: bool = True
+    portfolio_initial_equity: float = Field(default=1000.0, gt=0)
+    portfolio_position_frac: float = Field(default=1.0, gt=0, le=1)
+    portfolio_flat_eps: float = Field(default=1e-8, ge=0)
     sim: SimConfig = Field(default_factory=SimConfig)
     interpretation_allowed: bool = False
     storage_root: str = "data"
