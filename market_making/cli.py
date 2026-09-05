@@ -15,6 +15,8 @@ from market_making.fees import is_positive_half_spread, round_trip_net_edge_bps
 from market_making.inventory import InventoryState
 from market_making.simulator import run_month_sim, run_paper_sim, save_sim_artifacts
 from market_making.portfolio import run_portfolio_month, save_portfolio_artifacts
+from market_making.realtime import run_live_paper_session, run_realtime_paper, save_realtime_artifacts
+from market_making.feed import BookSnapshot
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,6 +61,16 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--seed", type=int, default=42)
     pf.add_argument("--equity", type=float, default=None, help="Initial USDT wallet (default: config)")
     pf.add_argument("--no-persist", action="store_true")
+    lp = sub.add_parser(
+        "live-paper",
+        help="Event-driven paper MM on live BBO (NOT candles); hold time in seconds",
+    )
+    lp.add_argument("--duration-sec", type=float, default=90.0)
+    lp.add_argument("--poll-sec", type=float, default=None)
+    lp.add_argument("--equity", type=float, default=1000.0)
+    lp.add_argument("--seed", type=int, default=42)
+    lp.add_argument("--no-persist", action="store_true")
+    lp.add_argument("--synthetic", action="store_true", help="Synthetic BBO (offline)")
     return p
 
 
@@ -226,6 +238,54 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0 if result.n_entries > 0 else 3
+
+    if args.command == "live-paper":
+        if args.synthetic:
+            import time as _time
+            syms = list(cfg.symbols)[:5]
+            mids = {s: 100.0 + i for i, s in enumerate(syms)}
+            t0 = int(_time.time() * 1000)
+            events = []
+            n_ticks = max(30, int(args.duration_sec))
+            for i in range(n_ticks):
+                for s in syms:
+                    mids[s] *= 1.0 + 0.00015 * ((i + hash(s)) % 5 - 2)
+                    m = mids[s]
+                    sp = m * 0.00025
+                    events.append(
+                        BookSnapshot(
+                            symbol=s,
+                            ts_ms=t0 + i * 1000,
+                            bid=m - sp / 2,
+                            ask=m + sp / 2,
+                            bid_size=1.0,
+                            ask_size=1.0,
+                            mid=m,
+                            spread_bps=2.5,
+                            exchange_id="synthetic",
+                        )
+                    )
+            result, rows = run_realtime_paper(
+                cfg, events, seed=args.seed, initial_equity=args.equity,
+                poll_interval_sec=args.poll_sec or 1.0,
+            )
+        else:
+            result, rows = run_live_paper_session(
+                cfg,
+                duration_sec=args.duration_sec,
+                poll_interval_sec=args.poll_sec,
+                seed=args.seed,
+                initial_equity=args.equity,
+            )
+        paths = {}
+        if not args.no_persist:
+            paths = save_realtime_artifacts(
+                result, rows, root=cfg.storage_root, exchange_id=cfg.exchange_id,
+                basename="realtime_paper_latest",
+            )
+        print(json.dumps({**result.__dict__, "artifacts": paths}, indent=2, default=str))
+        return 0 if result.n_entries > 0 else 3
+
 
     return 1
 

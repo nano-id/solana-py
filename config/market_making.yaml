@@ -39,6 +39,7 @@ market_making:
   use_as_quotes: true
   portfolio_initial_equity: 1000.0
   portfolio_position_frac: 1.0
+  realtime_poll_sec: 1.0
   portfolio_flat_eps: 1.0e-8
   interpretation_allowed: false
   sim:

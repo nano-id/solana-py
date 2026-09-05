@@ -57,6 +57,7 @@ class MarketMakingConfig(BaseModel):
     portfolio_initial_equity: float = Field(default=1000.0, gt=0)
     portfolio_position_frac: float = Field(default=1.0, gt=0, le=1)
     portfolio_flat_eps: float = Field(default=1e-8, ge=0)
+    realtime_poll_sec: float = Field(default=1.0, gt=0)
     sim: SimConfig = Field(default_factory=SimConfig)
     interpretation_allowed: bool = False
     storage_root: str = "data"
