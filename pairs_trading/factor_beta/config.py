@@ -10,9 +10,27 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class FactorConfig(BaseModel):
+    """BTC factor settings.
+
+    beta_lookback_days_* is the OLS window for α,β — independent from
+    Rule-5c trade windows (8–10 weeks) and signal z-score windows.
+    """
+
     symbol: str = "BTC/USDT"
-    beta_window_grid: list[int] = Field(default_factory=lambda: [60, 90, 120])
-    min_obs: int = Field(default=60, ge=30)
+    beta_lookback_days_grid: list[int] = Field(default_factory=lambda: [182, 365])
+    beta_lookback_days_default: int = Field(default=182, ge=60)
+    min_obs: int = Field(default=182, ge=60)
+
+    @model_validator(mode="after")
+    def _lookback_ok(self) -> FactorConfig:
+        if self.beta_lookback_days_default not in self.beta_lookback_days_grid:
+            # Allow default outside grid only if grid empty (shouldn't happen).
+            if self.beta_lookback_days_grid and self.beta_lookback_days_default not in self.beta_lookback_days_grid:
+                # Soft: still valid; walk-forward may pick another grid point.
+                pass
+        if self.min_obs > min(self.beta_lookback_days_grid):
+            raise ValueError("min_obs must be ≤ smallest beta_lookback_days_grid entry")
+        return self
 
 
 class UniverseConfig(BaseModel):

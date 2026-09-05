@@ -1,4 +1,4 @@
-"""Module 3 factor-beta package entrypoint: python -m pairs_trading.factor_beta.cli ..."""
+"""python -m pairs_trading.factor_beta"""
 
 from pairs_trading.factor_beta.cli import main
 

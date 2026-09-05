@@ -5,8 +5,13 @@ data_config: config/scan.yaml
 
 factor:
   symbol: BTC/USDT
-  beta_window_grid: [60, 90, 120]
-  min_obs: 60
+  # TIMESCALES (do not mix):
+  # - beta_lookback_days_* = OLS lookback for α,β vs BTC (longer; quieter β)
+  # - evaluation.window_weeks_* = trade evaluation windows (Rule 5c: 8–10w)
+  # - signal.zscore_window_grid = residual z-score window (signal scale)
+  beta_lookback_days_grid: [182, 365]   # ~26w, ~52w
+  beta_lookback_days_default: 182
+  min_obs: 182
 
 universe:
   symbols:

@@ -145,6 +145,55 @@ def build_log_price_panel(config: FactorBetaConfig | None = None) -> LogPricePan
     )
 
 
+def alignment_transparency(config: FactorBetaConfig | None = None) -> dict:
+    """Per-coin RAW first/last bar vs aligned panel method (no forward-fill)."""
+    config = config or load_factor_beta_config()
+    store = ParquetStore(
+        Path(config.storage.root),
+        config.storage.exchange_id,
+        config.storage.timeframe,
+    )
+    panel = build_log_price_panel(config)
+    lp = panel.log_prices
+    aligned_start = lp.index.min().date().isoformat() if len(lp) else None
+    aligned_end = lp.index.max().date().isoformat() if len(lp) else None
+
+    raw_rows: list[dict] = []
+    for cov in panel.coverage:
+        binds_alignment = bool(
+            cov.start is not None and aligned_start is not None and cov.start == aligned_start
+        )
+        raw_rows.append(
+            {
+                **asdict(cov),
+                "longer_than_aligned": bool(
+                    cov.start is not None
+                    and aligned_start is not None
+                    and cov.start < aligned_start
+                ),
+                "binds_aligned_start": binds_alignment,
+            }
+        )
+
+    binders = [r["symbol"] for r in raw_rows if r["binds_aligned_start"]]
+    longer = [r["symbol"] for r in raw_rows if r["longer_than_aligned"]]
+    return {
+        "alignment_method": "inner_join_then_dropna_how_any",
+        "forward_fill": False,
+        "nan_fill": False,
+        "aligned_start": aligned_start,
+        "aligned_end": aligned_end,
+        "aligned_bars": int(len(lp)),
+        "symbols_binding_aligned_start": binders,
+        "symbols_with_longer_raw_history": longer,
+        "raw_per_symbol": raw_rows,
+        "note": (
+            "Aligned panel is truncated to the intersection of available dates. "
+            "No forward-fill. Shorter raw history coins bind the panel start."
+        ),
+    }
+
+
 def inventory_report(config: FactorBetaConfig | None = None) -> dict:
     config = config or load_factor_beta_config()
     panel = build_log_price_panel(config)
@@ -155,6 +204,7 @@ def inventory_report(config: FactorBetaConfig | None = None) -> dict:
     min_weeks_needed = (
         config.evaluation.min_independent_windows * config.evaluation.window_weeks_min
     )
+    align = alignment_transparency(config)
     return {
         "step": 1,
         "step_name": "data",
@@ -172,6 +222,7 @@ def inventory_report(config: FactorBetaConfig | None = None) -> dict:
         "aligned_span_weeks": round(weeks, 2),
         "rule5c_min_weeks_needed": min_weeks_needed,
         "rule5c_calendar_feasible": weeks >= min_weeks_needed,
+        "alignment": align,
         "coverage": [asdict(c) for c in panel.coverage],
         "rules_locked": panel.rules_snapshot,
         "interpretation_allowed": False,
