@@ -29,7 +29,39 @@ funding:
     - LTC/USDT:USDT
     - ADA/USDT:USDT
     - LINK/USDT:USDT
+    - AVAX/USDT:USDT
+    - SUI/USDT:USDT
+    - APT/USDT:USDT
+    - NEAR/USDT:USDT
+    - ARB/USDT:USDT
+    - OP/USDT:USDT
+    - INJ/USDT:USDT
+    - FIL/USDT:USDT
+    - WLD/USDT:USDT
+    - ORDI/USDT:USDT
 
 ohlcv:
   timeframe: 1h
   lookback_days: 90
+
+fees:
+  spot_taker: 0.001
+  perp_taker: 0.0005
+  use_taker: true
+
+capacity:
+  min_quote_volume_24h: 1000000
+  max_adv_fraction: 0.01
+  max_notional_usdt: 50000
+
+risk:
+  equity_usdt: 10000
+  max_name_fraction: 0.25
+  target_gross_fraction: 0.5
+  min_notional_usdt: 50
+
+harvest:
+  expected_hold_days: 30
+  min_net_ann: 0.0
+  apply_persistence: true
+  apply_basis_drag: true

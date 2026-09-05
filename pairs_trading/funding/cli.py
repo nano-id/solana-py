@@ -1,4 +1,4 @@
-"""CLI for Module 1 — perpetual funding-rate data + screens."""
+"""CLI for Module 1 — perpetual funding sync, screens, harvest, paper."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ import logging
 import sys
 from pathlib import Path
 
+from pairs_trading.data.exchange import connect_with_fallback
 from pairs_trading.funding.config import load_funding_config
+from pairs_trading.funding.harvest import build_harvest_table, run_paper_backtest
+from pairs_trading.funding.persist import save_funding_screen
 from pairs_trading.funding.pipeline import FundingPipeline
 from pairs_trading.funding.screen import screen_funding_store
 from pairs_trading.funding.storage import FundingStore
@@ -40,27 +43,35 @@ def _extract_global_flags(argv: list[str]) -> tuple[list[str], Path | None, bool
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pairs-funding",
-        description="Module 1: perpetual funding-rate sync and harvest screens.",
+        description="Module 1: perpetual funding-rate harvest pipeline.",
     )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sync = sub.add_parser("sync", help="Fetch funding-rate history → parquet")
-    p_sync.add_argument(
-        "--symbols",
-        nargs="+",
-        default=None,
-        help="CCXT swap symbols, e.g. BTC/USDT:USDT",
-    )
+    p_sync.add_argument("--symbols", nargs="+", default=None)
     p_sync.add_argument("--full", action="store_true", help="Ignore local cache")
 
     p_show = sub.add_parser("show", help="Show stored funding summary + tail")
-    p_show.add_argument("symbol", help="e.g. BTC/USDT:USDT")
+    p_show.add_argument("symbol")
     p_show.add_argument("--tail", type=int, default=5)
 
-    p_screen = sub.add_parser("screen", help="Rank stored symbols by |annualized mean funding|")
+    p_screen = sub.add_parser("screen", help="Rank by |ann_mean| funding")
     p_screen.add_argument("--symbols", nargs="+", default=None)
+
+    p_harvest = sub.add_parser(
+        "harvest",
+        help="Net-carry screen: fees + persistence + basis + capacity + size",
+    )
+    p_harvest.add_argument("--symbols", nargs="+", default=None)
+    p_harvest.add_argument("--no-live", action="store_true", help="Skip live basis/volume")
+    p_harvest.add_argument("--persist", action="store_true", help="Write screen artifacts")
+
+    p_paper = sub.add_parser("paper", help="Paper backtest harvest on stored history")
+    p_paper.add_argument("--symbols", nargs="+", default=None)
+    p_paper.add_argument("--no-live", action="store_true")
+    p_paper.add_argument("--persist", action="store_true")
 
     return parser
 
@@ -74,6 +85,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if verbose:
         args.verbose = True
     return args
+
+
+def _resolve_store_exchange_id(config) -> str:
+    for eid in config.exchange.candidate_ids():
+        store = FundingStore(config.storage.root, eid)
+        if store.list_symbols():
+            return eid
+    return config.exchange.id
+
+
+def _persist_mode(config) -> str:
+    mode = config.funding.persist_mode
+    return mode if mode in ("dated", "latest", "both") else "both"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -97,7 +121,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "show":
         eid = config.exchange.id
-        # Prefer whatever was last written — try okx if default file missing
         store = FundingStore(config.storage.root, eid)
         if not store.exists(args.symbol):
             for cand in config.exchange.candidate_ids():
@@ -114,10 +137,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "screen":
-        # Screen across whichever venue has local funding parquet
-        tried = []
+        tried: list[str] = []
         df = None
-        for eid in [config.exchange.id, *config.exchange.fallbacks]:
+        for eid in config.exchange.candidate_ids():
             tried.append(eid)
             cand = screen_funding_store(config, symbols=args.symbols, exchange_id=eid)
             if not cand.empty:
@@ -145,10 +167,104 @@ def main(argv: list[str] | None = None) -> int:
         print(df[cols].to_string(index=False))
         print(
             "\nNote: ann_* = mean_settlement_rate × "
-            f"{config.funding.settlements_per_day} × 365 (simple). "
-            "Not a live entry rule — capacity/basis/fees come next."
+            f"{config.funding.settlements_per_day} × 365 (simple)."
         )
         return 0
+
+    if args.command in ("harvest", "paper"):
+        eid = _resolve_store_exchange_id(config)
+        exchange = None
+        if not args.no_live:
+            connected = connect_with_fallback(config.exchange)
+            exchange = connected.exchange
+            eid = connected.exchange_id
+            config.exchange.id = eid
+
+        table = build_harvest_table(
+            config, exchange=exchange, exchange_id=eid, symbols=args.symbols
+        )
+        if table.empty:
+            print("No harvest rows. Run: pairs-funding sync")
+            return 1
+
+        if args.command == "harvest":
+            cols = [
+                c
+                for c in [
+                    "rank",
+                    "symbol",
+                    "side",
+                    "ann_mean",
+                    "gross_ann",
+                    "fee_drag_ann",
+                    "basis_drag_ann",
+                    "net_ann",
+                    "harvest_efficiency",
+                    "basis_bps",
+                    "quote_volume_24h",
+                    "sized_notional",
+                    "tradable",
+                    "positive_net",
+                ]
+                if c in table.columns
+            ]
+            print("=== NET CARRY HARVEST (net_ann desc) ===")
+            print(table[cols].to_string(index=False, float_format=lambda x: f"{x:.6f}"))
+            n_pos = int(table["positive_net"].sum())
+            n_tradable = int(table["tradable"].sum())
+            print(f"\npositive_net={n_pos} tradable={n_tradable} / {len(table)}")
+            if args.persist:
+                paths = save_funding_screen(
+                    table,
+                    root=config.storage.root,
+                    exchange_id=eid,
+                    name="harvest",
+                    mode=_persist_mode(config),  # type: ignore[arg-type]
+                    meta={"positive_net": n_pos, "tradable": n_tradable},
+                )
+                print("Wrote:", ", ".join(str(p) for p in paths))
+            return 0 if n_pos > 0 else 2
+
+        _, paper_df = run_paper_backtest(
+            config, exchange=exchange, exchange_id=eid, harvest_df=table
+        )
+        if paper_df.empty:
+            print("No paper results. Run: pairs-funding sync")
+            return 1
+        paper_df = paper_df.sort_values("net_pnl", ascending=False).reset_index(drop=True)
+        cols = [
+            c
+            for c in [
+                "symbol",
+                "side",
+                "n_settlements",
+                "notional_usdt",
+                "funding_pnl",
+                "fee_pnl",
+                "basis_pnl",
+                "net_pnl",
+                "net_return",
+                "ann_return",
+                "hold_days",
+                "positive",
+            ]
+            if c in paper_df.columns
+        ]
+        print("=== PAPER FUNDING HARVEST ===")
+        print(paper_df[cols].to_string(index=False, float_format=lambda x: f"{x:.6f}"))
+        n_pos = int(paper_df["positive"].sum())
+        print(f"\npositive_pnl={n_pos} / {len(paper_df)}")
+        if args.persist:
+            paths = save_funding_screen(
+                paper_df,
+                root=config.storage.root,
+                exchange_id=eid,
+                name="paper",
+                mode=_persist_mode(config),  # type: ignore[arg-type]
+                meta={"positive": n_pos},
+            )
+            print("Wrote:", ", ".join(str(p) for p in paths))
+        return 0 if n_pos > 0 else 2
 
     build_parser().error(f"Unknown command: {args.command}")
     return 2
