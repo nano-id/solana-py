@@ -29,10 +29,11 @@ dev = [
 pairs-data = "pairs_trading.data.cli:main"
 pairs-coint = "pairs_trading.cointegration.cli:main"
 pairs-funding = "pairs_trading.funding.cli:main"
+funding-arb = "funding_arb.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pairs_trading*"]
+include = ["pairs_trading*", "funding_arb*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,47 @@
+# funding_arb — step 1: live funding / spot / perp / depth collector
+# Reuses pairs_trading data layer (CCXT + binance→bybit→okx geo-fallback).
+
+exchange:
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: swap
+
+storage:
+  root: data
+
+collector:
+  interval_seconds: 900   # 15 minutes
+  persist_mode: both
+  settlements_per_day: 3.0
+  symbols:
+    - BTC/USDT:USDT
+    - ETH/USDT:USDT
+    - SOL/USDT:USDT
+    - XRP/USDT:USDT
+    - DOGE/USDT:USDT
+    - LTC/USDT:USDT
+    - ADA/USDT:USDT
+    - LINK/USDT:USDT
+    - AVAX/USDT:USDT
+    - SUI/USDT:USDT
+    - APT/USDT:USDT
+    - NEAR/USDT:USDT
+    - ARB/USDT:USDT
+    - OP/USDT:USDT
+    - INJ/USDT:USDT
+    - FIL/USDT:USDT
+    - WLD/USDT:USDT
+    - ORDI/USDT:USDT
+    - BNB/USDT:USDT
+    - DOT/USDT:USDT
+
+depth:
+  book_limit: 20
+  band_frac: 0.002   # 20 bps from mid for depth notional
+  fetch_spot_book: true
+  fetch_perp_book: true

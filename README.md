@@ -11,6 +11,22 @@ Modül 2 (kointegrasyon tarama) araştırma olarak **kapatıldı** — kod refer
 pip install -e ".[dev]"
 ```
 
+## funding_arb — canlı collector (adım 1)
+
+Yeni paket: canlı funding + spot/perp fiyat + order-book derinliği → yerel tablo.
+
+```bash
+funding-arb --config config/funding_arb.yaml collect --once
+funding-arb --config config/funding_arb.yaml collect --loop --max-cycles 2
+```
+
+```
+data/{exchange}/funding_arb/snapshots/latest.{csv,parquet}
+data/{exchange}/funding_arb/snapshots/history.parquet
+```
+
+Sonraki adımlar (henüz yok): skorlama, delta-nötr giriş, rotasyon, kapanış, trade log.
+
 ## Modül 1 — Funding rate (aktif)
 
 Perp funding geçmişi → net carry harvest (fees + persistence + basis + capacity + sizing) → paper backtest.
