@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,6 +98,7 @@ def select_entry_candidate(
     *,
     require_non_floor: bool = True,
     require_depth: bool = True,
+    min_abs_premium: float | None = None,
 ) -> dict[str, Any] | None:
     """Pick top screen row suitable for entry (prefers real premium)."""
     if screen is None or getattr(screen, "empty", True):
@@ -108,6 +111,15 @@ def select_entry_candidate(
         if not non_floor.empty:
             frame = non_floor
         # else: fall back to floor names only if nothing else passes
+    if min_abs_premium is not None and min_abs_premium > 0:
+        prem_col = None
+        for col in ("premium_rate", "premium"):
+            if col in frame.columns:
+                prem_col = col
+                break
+        if prem_col is not None:
+            prem = pd.to_numeric(frame[prem_col], errors="coerce").abs()
+            frame = frame[prem >= float(min_abs_premium)]
     if frame.empty:
         return None
     row = frame.iloc[0]

@@ -85,20 +85,27 @@ def run_control_cycle(
     close_perp_fill_ratio: float = 1.0,
     open_spot_fill_ratio: float = 1.0,
     open_perp_fill_ratio: float = 1.0,
+    enable_rotation: bool = True,
+    min_abs_premium: float | None = None,
 ) -> CycleResult:
     """One control tick.
 
     Order (enforced):
       1) flat → optional non-floor enter
       2) open → **exit rules first**
-      3) else rotation (3× non-floor premium)
+      3) else rotation (3× non-floor premium) if ``enable_rotation``
       4) never emit exit+rotate together
+
+    ``min_abs_premium`` gates flat→enter only (exit rules unchanged).
     """
     notes: list[str] = []
 
     if position is None:
         cand = select_entry_candidate(
-            screen, require_non_floor=require_non_floor, require_depth=True
+            screen,
+            require_non_floor=require_non_floor,
+            require_depth=True,
+            min_abs_premium=min_abs_premium,
         )
         if cand is None:
             return CycleResult(
@@ -170,6 +177,15 @@ def run_control_cycle(
             exit_decision=exit_decision,
             exec_result=closed,
             notes=notes,
+        )
+
+    if not enable_rotation:
+        return CycleResult(
+            action=CycleAction.HOLD,
+            position_before=position,
+            position_after=position,
+            exit_decision=exit_decision,
+            notes=notes + ["hold", "rotation_disabled"],
         )
 
     rotation = decide_rotation(
