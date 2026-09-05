@@ -231,11 +231,13 @@ def save_factor_outputs(
         "residual": str(
             output_dir / f"step2_residual_lookback{result.lookback_days}.parquet"
         ),
+        "r2": str(output_dir / f"step2_r2_lookback{result.lookback_days}.parquet"),
     }
     Path(paths["report"]).write_text(json.dumps(report, indent=2), encoding="utf-8")
     result.beta.to_parquet(paths["beta"])
     result.alpha.to_parquet(paths["alpha"])
     result.residual.to_parquet(paths["residual"])
+    result.r2.to_parquet(paths["r2"])
     if write_canonical:
         canon = output_dir / "step2_factor_model_report.json"
         canon.write_text(json.dumps(report, indent=2), encoding="utf-8")

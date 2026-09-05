@@ -8,6 +8,10 @@ import logging
 import sys
 from pathlib import Path
 
+from pairs_trading.factor_beta.beta_regime import (
+    analyze_beta_sign_flip,
+    save_beta_regime_report,
+)
 from pairs_trading.factor_beta.config import load_factor_beta_config
 from pairs_trading.factor_beta.data import (
     alignment_transparency,
@@ -15,6 +19,7 @@ from pairs_trading.factor_beta.data import (
     save_inventory,
 )
 from pairs_trading.factor_beta.factor_model import run_step2_all_lookbacks
+from pairs_trading.factor_beta.stationarity import run_adf_filter, save_adf_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,6 +45,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Rolling BTC-beta factor model (β lookback ≠ trade/z windows)",
     )
     s2.add_argument("--out", type=Path, default=None)
+
+    s2b = sub.add_parser(
+        "step2b-beta-regime",
+        help="Diagnostic: WLD/NEAR β sign-flip vs R² and BTC vol (not a trade step)",
+    )
+    s2b.add_argument("--out", type=Path, default=None)
+    s2b.add_argument(
+        "--symbols",
+        nargs="+",
+        default=["WLD/USDT", "NEAR/USDT"],
+        help="Symbols to inspect for β sign flips",
+    )
+
+    s3 = sub.add_parser(
+        "step3-adf",
+        help="ADF stationarity filter on residuals (candidate gate)",
+    )
+    s3.add_argument("--out", type=Path, default=None)
     return p
 
 
@@ -71,10 +94,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "step2-factor":
         bundle = run_step2_all_lookbacks(cfg)
-        # Drop bulky default_report from stdout; write already done inside
         slim = {k: v for k, v in bundle.items() if k != "default_report"}
         print(json.dumps(slim, indent=2))
         print(f"\nWrote under {out}", file=sys.stderr)
+        return 0
+
+    if args.command == "step2b-beta-regime":
+        report = analyze_beta_sign_flip(cfg, symbols=list(args.symbols))
+        path = save_beta_regime_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
+        return 0
+
+    if args.command == "step3-adf":
+        report = run_adf_filter(cfg)
+        path = save_adf_report(report, out)
+        print(json.dumps(report, indent=2))
+        print(f"\nWrote {path}", file=sys.stderr)
         return 0
 
     parser.error(f"unknown command: {args.command}")
