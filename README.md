@@ -31,7 +31,9 @@ data/{exchange}/funding/screens/paper_latest.{parquet,csv,meta.json}
 
 `exchange.market_type` kodda **swap** zorlanır. Geo-fallback: binance → bybit → okx.
 
-**Canlı OKX smoke (2026-09):** harvest `positive_net≥3` ve `tradable≥3` (DOGE/NEAR/SUI); paper `18/18` pozitif net PnL (~90g funding history, fee dahil).
+**Kör test (walk-forward OOS):** `pairs-funding blind` — taraf yalnızca train penceresinden; PnL sonraki settlement’larda; fold’lar çakışmaz; open+close round-trip fee.
+
+OKX ~90g smoke (2026-09): in-sample paper iyimser; **blind aggregate `sum_net_pnl < 0`** (traded 3/6 pozitif). Screen ≠ OOS kanıt.
 
 ## Faz 1 — OHLCV veri katmanı
 
@@ -65,7 +67,8 @@ pytest -q -m integration  # canlı exchange smoke
 4. ~~Kapasite / likidite filtresi~~
 5. ~~Risk / pozisyon boyutlandırma (delta-nötr)~~
 6. ~~Paper harvest backtest + screen persist~~
-7. Live execution / walk-forward (sonraki dilim)
+7. ~~Blind walk-forward OOS (`pairs-funding blind`)~~ — OKX ~90g: aggregate negatif
+8. Live execution (sonraki dilim)
 
 ## Tasarım ilkeleri
 

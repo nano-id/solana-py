@@ -8,12 +8,13 @@ import sys
 from pathlib import Path
 
 from pairs_trading.data.exchange import connect_with_fallback
-from pairs_trading.funding.config import load_funding_config
+from pairs_trading.funding.config import WalkForwardConfig, load_funding_config
 from pairs_trading.funding.harvest import build_harvest_table, run_paper_backtest
 from pairs_trading.funding.persist import save_funding_screen
 from pairs_trading.funding.pipeline import FundingPipeline
 from pairs_trading.funding.screen import screen_funding_store
 from pairs_trading.funding.storage import FundingStore
+from pairs_trading.funding.walkforward import run_walkforward_universe
 
 
 def _extract_global_flags(argv: list[str]) -> tuple[list[str], Path | None, bool]:
@@ -68,10 +69,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_harvest.add_argument("--no-live", action="store_true", help="Skip live basis/volume")
     p_harvest.add_argument("--persist", action="store_true", help="Write screen artifacts")
 
-    p_paper = sub.add_parser("paper", help="Paper backtest harvest on stored history")
+    p_paper = sub.add_parser("paper", help="In-sample paper backtest (NOT blind)")
     p_paper.add_argument("--symbols", nargs="+", default=None)
     p_paper.add_argument("--no-live", action="store_true")
     p_paper.add_argument("--persist", action="store_true")
+
+    p_blind = sub.add_parser(
+        "blind",
+        help="Walk-forward OOS harvest: side from train only, PnL on later settlements",
+    )
+    p_blind.add_argument("--symbols", nargs="+", default=None)
+    p_blind.add_argument("--persist", action="store_true")
+    p_blind.add_argument(
+        "--no-edge-gate",
+        action="store_true",
+        help="Disable train edge-vs-fee gate (still no look-ahead on side)",
+    )
 
     return parser
 
@@ -265,6 +278,76 @@ def main(argv: list[str] | None = None) -> int:
             )
             print("Wrote:", ", ".join(str(p) for p in paths))
         return 0 if n_pos > 0 else 2
+
+    if args.command == "blind":
+        eid = _resolve_store_exchange_id(config)
+        wf = config.walkforward
+        if args.no_edge_gate:
+            wf = wf.model_copy(update={"require_train_edge": False})
+        frame, _results = run_walkforward_universe(
+            config, exchange_id=eid, symbols=args.symbols, wf_config=wf
+        )
+        if frame.empty:
+            print("No blind results. Run: pairs-funding sync")
+            return 1
+        cols = [
+            c
+            for c in [
+                "rank",
+                "symbol",
+                "n_folds",
+                "n_traded_folds",
+                "n_test_settlements",
+                "funding_pnl",
+                "fee_pnl",
+                "net_pnl",
+                "net_return",
+                "ann_return",
+                "hold_days",
+                "fold_hit_rate",
+                "positive",
+            ]
+            if c in frame.columns
+        ]
+        print("=== BLIND WALK-FORWARD FUNDING (OOS) ===")
+        print(
+            f"protocol: train={wf.train_settlements} test={wf.test_settlements} "
+            f"step={wf.step_settlements} edge_gate={wf.require_train_edge} "
+            f"exit_fee={wf.charge_exit_fee}"
+        )
+        print(frame[cols].to_string(index=False, float_format=lambda x: f"{x:.6f}"))
+        traded = frame[frame["n_traded_folds"] > 0] if "n_traded_folds" in frame.columns else frame
+        n_pos = int(frame["positive"].sum())
+        n_traded = int(len(traded))
+        n_traded_pos = int(traded["positive"].sum()) if n_traded else 0
+        sum_net = float(frame["net_pnl"].sum())
+        print(
+            f"\npositive_symbols={n_pos}/{len(frame)}  "
+            f"traded_positive={n_traded_pos}/{n_traded}  "
+            f"sum_net_pnl={sum_net:.4f}"
+        )
+        print(
+            "Note: side chosen from train only; PnL on later settlements; "
+            "non-overlapping folds; open+close round-trip fees."
+        )
+        if args.persist:
+            paths = save_funding_screen(
+                frame,
+                root=config.storage.root,
+                exchange_id=eid,
+                name="blind",
+                mode=_persist_mode(config),  # type: ignore[arg-type]
+                meta={
+                    "positive_symbols": n_pos,
+                    "traded_positive": n_traded_pos,
+                    "sum_net_pnl": sum_net,
+                    "protocol": wf.model_dump(),
+                },
+            )
+            print("Wrote:", ", ".join(str(p) for p in paths))
+        if n_traded == 0:
+            return 2
+        return 0 if (sum_net > 0 and n_traded_pos > n_traded / 2) else 2
 
     build_parser().error(f"Unknown command: {args.command}")
     return 2

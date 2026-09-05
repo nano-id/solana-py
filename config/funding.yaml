@@ -65,3 +65,13 @@ harvest:
   min_net_ann: 0.0
   apply_persistence: true
   apply_basis_drag: true
+
+walkforward:
+  train_settlements: 90
+  test_settlements: 90
+  step_settlements: 90
+  settlements_per_day: 3.0
+  min_abs_train_mean: 0.00001
+  require_train_edge: true
+  charge_fees_on_rebalance: true
+  charge_exit_fee: true

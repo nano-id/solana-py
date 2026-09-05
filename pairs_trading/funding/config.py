@@ -28,6 +28,21 @@ class HarvestConfig(BaseModel):
     apply_basis_drag: bool = True
 
 
+class WalkForwardConfig(BaseModel):
+    """Blind walk-forward evaluation protocol (not live entry rules)."""
+
+    # Defaults sized so one round-trip fee can be cleared by ~30d of mild funding.
+    train_settlements: int = Field(default=90, ge=10)  # ~30d
+    test_settlements: int = Field(default=90, ge=1)  # ~30d OOS hold
+    step_settlements: int = Field(default=90, ge=1)  # non-overlapping with test=90
+    settlements_per_day: float = Field(default=3.0, gt=0)
+    min_abs_train_mean: float = Field(default=1e-5, ge=0)
+    require_train_edge: bool = True
+    charge_fees_on_rebalance: bool = True
+    # Charge one more round-trip when the last traded fold ends (close book).
+    charge_exit_fee: bool = True
+
+
 class FundingConfig(BaseModel):
     """Funding harvest settings. Thresholds are screens — not live entry params."""
 
@@ -75,6 +90,7 @@ class FundingAppConfig(BaseModel):
     capacity: CapacityConfig = Field(default_factory=CapacityConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     harvest: HarvestConfig = Field(default_factory=HarvestConfig)
+    walkforward: WalkForwardConfig = Field(default_factory=WalkForwardConfig)
 
     @field_validator("exchange")
     @classmethod
