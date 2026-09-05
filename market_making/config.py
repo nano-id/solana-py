@@ -22,7 +22,20 @@ class SimConfig(BaseModel):
 class MarketMakingConfig(BaseModel):
     """Spot MM. commission_pct is percent points: 0.07 → 0.07% = 7 bps/side."""
 
-    symbols: list[str] = Field(default_factory=lambda: ["BTC/USDT", "ETH/USDT"])
+    symbols: list[str] = Field(
+        default_factory=lambda: [
+            "BTC/USDT",
+            "ETH/USDT",
+            "BNB/USDT",
+            "SOL/USDT",
+            "XRP/USDT",
+            "DOGE/USDT",
+            "ADA/USDT",
+            "TRX/USDT",
+            "LTC/USDT",
+            "SUI/USDT",
+        ]
+    )
     commission_pct: float = Field(default=0.07, ge=0)
     edge_buffer_bps: float = Field(default=5.0, ge=0)
     min_half_spread_bps: float = Field(default=12.0, gt=0)

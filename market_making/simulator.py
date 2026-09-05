@@ -88,6 +88,8 @@ def run_mid_path_sim(
 
         buy_fill = False
         sell_fill = False
+        buy_size = 0.0
+        sell_size = 0.0
         if q.quoting and q.bid_size > 0:
             p_bid = _fill_prob(mid_f, q.bid, q.half_spread_bps, sc.fill_prob)
             if rng.random() < p_bid:
@@ -95,6 +97,7 @@ def run_mid_path_sim(
                 fee = fee_on_notional(px * q.bid_size, cfg)
                 inv.apply_buy(price=px, size=q.bid_size, fee=fee, bar=i)
                 buy_fill = True
+                buy_size = float(q.bid_size)
         if q.quoting and q.ask_size > 0:
             p_ask = _fill_prob(mid_f, q.ask, q.half_spread_bps, sc.fill_prob)
             if rng.random() < p_ask:
@@ -102,6 +105,7 @@ def run_mid_path_sim(
                 fee = fee_on_notional(px * q.ask_size, cfg)
                 inv.apply_sell(price=px, size=q.ask_size, fee=fee, bar=i)
                 sell_fill = True
+                sell_size = float(q.ask_size)
 
         row: dict[str, Any] = {
             "bar": i,
@@ -116,6 +120,8 @@ def run_mid_path_sim(
             "equity": inv.mark_to_market(mid_f),
             "buy_fill": buy_fill,
             "sell_fill": sell_fill,
+            "buy_size": buy_size,
+            "sell_size": sell_size,
             "fees_cum": inv.fees_paid,
             "realized_pnl": inv.realized_pnl,
         }
@@ -219,11 +225,14 @@ def run_month_sim(
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
-    # Scale max inventory to ~$10k notional equivalent for high-priced coins.
-    # Keep quote cash = 2× max base × mid0.
+    # Scale max inventory to ~$10k notional so clip sizes are comparable across prices.
+    mid0 = float(mids[0])
+    if mid0 > 0:
+        cfg = cfg.model_copy(update={"max_inventory": 10_000.0 / mid0})
     notes = (
         f"Historical {symbol} {timeframe} {start}→{end} on {cfg.exchange_id}. "
-        f"n_bars={len(mids)}. Queue fills + fee {cfg.commission_pct}%/side. "
+        f"n_bars={len(mids)}. max_inv≈$10k/mid0={cfg.max_inventory:.6g}. "
+        f"Queue fills + fee {cfg.commission_pct}%/side. "
         "Not a live-edge claim."
     )
     return run_mid_path_sim(cfg, mids, seed=seed, timestamps=stamps, notes=notes)

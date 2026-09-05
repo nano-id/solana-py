@@ -72,6 +72,7 @@ def test_inventory_buy_sell_round_trip_realizes() -> None:
 def test_load_yaml_and_paper_sim_net_positive() -> None:
     cfg = load_mm_config("config/market_making.yaml")
     assert cfg.commission_pct == 0.07
+    assert len(cfg.symbols) >= 10
     assert all(":" not in s for s in cfg.symbols)  # spot only, no perp colon
     cfg.sim.n_bars = 1500
     cfg.sim.seed = 42
@@ -82,6 +83,9 @@ def test_load_yaml_and_paper_sim_net_positive() -> None:
     # Under this paper fill model + positivity gate, equity should rise.
     assert result.net_positive is True
     assert frame["equity"].iloc[-1] > frame["equity"].iloc[0]
+    assert "buy_size" in frame.columns and "sell_size" in frame.columns
+    assert float(frame.loc[frame["buy_fill"], "buy_size"].min()) > 0
+    assert float(frame.loc[frame["sell_fill"], "sell_size"].min()) > 0
 
 
 def test_reject_fraction_commission_typo() -> None:
