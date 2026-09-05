@@ -17,6 +17,7 @@ from market_making.simulator import run_month_sim, run_paper_sim, save_sim_artif
 from market_making.portfolio import run_portfolio_month, save_portfolio_artifacts
 from market_making.realtime import run_live_paper_session, run_realtime_paper, save_realtime_artifacts
 from market_making.feed import BookSnapshot
+from market_making.hist_bbo import run_month_events_paper, save_month_events_artifacts
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -71,6 +72,30 @@ def build_parser() -> argparse.ArgumentParser:
     lp.add_argument("--seed", type=int, default=42)
     lp.add_argument("--no-persist", action="store_true")
     lp.add_argument("--synthetic", action="store_true", help="Synthetic BBO (offline)")
+
+    me = sub.add_parser(
+        "simulate-month-events",
+        help="Event-driven paper MM on OHLC→synth BBO (NOT candle decisions)",
+    )
+    me.add_argument("--year", type=int, default=2025)
+    me.add_argument("--month", type=int, default=3)
+    me.add_argument("--timeframe", default="1h")
+    me.add_argument("--steps-per-bar", type=int, default=60)
+    me.add_argument("--seed", type=int, default=42)
+    me.add_argument("--equity", type=float, default=None)
+    me.add_argument(
+        "--fill-prob",
+        type=float,
+        default=None,
+        help="Override sim.fill_prob (e.g. 0.25 conservative)",
+    )
+    me.add_argument(
+        "--adverse-frac",
+        type=float,
+        default=None,
+        help="Override sim.adverse_frac (e.g. 0.55 conservative)",
+    )
+    me.add_argument("--no-persist", action="store_true")
     return p
 
 
@@ -286,6 +311,57 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({**result.__dict__, "artifacts": paths}, indent=2, default=str))
         return 0 if result.n_entries > 0 else 3
 
+    if args.command == "simulate-month-events":
+        result, rows, meta = run_month_events_paper(
+            cfg,
+            year=args.year,
+            month=args.month,
+            timeframe=args.timeframe,
+            steps_per_bar=args.steps_per_bar,
+            seed=args.seed,
+            initial_equity=args.equity,
+            fill_prob=args.fill_prob,
+            adverse_frac=args.adverse_frac,
+        )
+        paths: dict = {}
+        if not args.no_persist:
+            tag = f"events_{args.year:04d}{args.month:02d}_{args.timeframe}"
+            if args.fill_prob is not None:
+                tag += f"_fp{args.fill_prob:.2f}"
+            paths = save_month_events_artifacts(
+                result,
+                rows,
+                meta,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename=tag,
+            )
+        out = {
+            **meta,
+            "equity_start": result.start_equity,
+            "equity_final": result.final_equity,
+            "total_return_pct": result.total_return_pct,
+            "n_entries": result.n_entries,
+            "n_round_trips": result.n_round_trips,
+            "n_skipped_busy": result.n_skipped_busy,
+            "hold_seconds_mean": result.hold_seconds_mean,
+            "hold_seconds_median": result.hold_seconds_median,
+            "hold_minutes_mean": (
+                None
+                if result.hold_seconds_mean is None
+                else result.hold_seconds_mean / 60.0
+            ),
+            "hold_minutes_median": (
+                None
+                if result.hold_seconds_median is None
+                else result.hold_seconds_median / 60.0
+            ),
+            "fees_paid": result.fees_paid,
+            "interpretation_allowed": False,
+            "artifacts": paths,
+        }
+        print(json.dumps(out, indent=2, default=str))
+        return 0 if result.n_entries > 0 else 3
 
     return 1
 
