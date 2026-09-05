@@ -55,6 +55,14 @@ class CollectorConfig(BaseModel):
     settlements_per_day: float = Field(default=3.0, gt=0)  # 8h funding cycle
 
 
+class ScreenConfig(BaseModel):
+    """Step 2 opportunity screen knobs (not live entry rules)."""
+
+    min_depth_usdt: float = Field(default=10_000.0, ge=0)
+    # Primary rate column: next settlement (funding_rate). sett is tie-break only.
+    rate_col: str = "funding_rate"
+
+
 class FundingArbAppConfig(BaseModel):
     exchange: ExchangeConfig = Field(
         default_factory=lambda: ExchangeConfig(
@@ -66,6 +74,7 @@ class FundingArbAppConfig(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     collector: CollectorConfig = Field(default_factory=CollectorConfig)
     depth: DepthConfig = Field(default_factory=DepthConfig)
+    screen: ScreenConfig = Field(default_factory=ScreenConfig)
 
     @field_validator("exchange")
     @classmethod

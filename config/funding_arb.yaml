@@ -45,3 +45,7 @@ depth:
   band_frac: 0.002   # 20 bps from mid for depth notional
   fetch_spot_book: true
   fetch_perp_book: true
+
+screen:
+  min_depth_usdt: 10000   # drop names thinner than this (Δ-neutral book)
+  rate_col: funding_rate  # next settlement; sett_funding_rate is tie-break only
