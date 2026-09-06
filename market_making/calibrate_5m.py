@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -180,19 +182,46 @@ def calibrate_5m(
     grid: list[dict[str, float]] | None = None,
     top_k: int = 8,
     portfolio_equity: float = 1000.0,
+    n_workers: int | None = None,
 ) -> FiveMinCalibResult:
     # User window: Jan–Mar 2025 IS; Apr 2025 reported as OOS check.
     is_months = is_months or [(2025, 1), (2025, 2), (2025, 3)]
     oos_months = oos_months or [(2025, 4)]
     grid = grid or default_5m_param_grid()
+    workers = n_workers if n_workers is not None else max(1, min(4, (os.cpu_count() or 2)))
 
     ranked: list[tuple[tuple[float, float, float], dict[str, float], dict[str, float]]] = []
-    for i, params in enumerate(grid):
-        trial = _apply_params(cfg, params)
-        is_stats = _eval_months(trial, is_months, timeframe=timeframe, seed=seed)
-        ranked.append((_score(is_stats), params, is_stats))
-        if (i + 1) % 6 == 0:
-            print(f"5m calib progress {i + 1}/{len(grid)}", flush=True)
+    cfg_dump = cfg.model_dump()
+    payloads = [
+        {
+            "idx": i,
+            "cfg": cfg_dump,
+            "params": params,
+            "is_months": list(is_months),
+            "timeframe": timeframe,
+            "seed": seed,
+        }
+        for i, params in enumerate(grid)
+    ]
+
+    if workers <= 1 or len(grid) <= 1:
+        for i, params in enumerate(grid):
+            trial = _apply_params(cfg, params)
+            is_stats = _eval_months(trial, is_months, timeframe=timeframe, seed=seed)
+            ranked.append((_score(is_stats), params, is_stats))
+            if (i + 1) % 6 == 0:
+                print(f"5m calib progress {i + 1}/{len(grid)}", flush=True)
+    else:
+        print(f"5m calib parallel workers={workers} grid={len(grid)}", flush=True)
+        done = 0
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futs = [pool.submit(_eval_one_trial, p) for p in payloads]
+            for fut in as_completed(futs):
+                _idx, params, is_stats = fut.result()
+                ranked.append((_score(is_stats), params, is_stats))
+                done += 1
+                if done % 6 == 0 or done == len(grid):
+                    print(f"5m calib progress {done}/{len(grid)}", flush=True)
 
     ranked.sort(key=lambda x: x[0], reverse=True)
     best_params = ranked[0][1]
