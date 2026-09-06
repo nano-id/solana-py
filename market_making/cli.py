@@ -23,6 +23,12 @@ from market_making.calibrate_hourly import (
     fifo_hold_hours_from_fills,
     save_hourly_calib,
 )
+from market_making.calibrate_5m import (
+    calibrate_5m,
+    lock_params_json as lock_5m_params_json,
+    save_5m_calib,
+    write_params_to_yaml as write_5m_params_to_yaml,
+)
 from market_making.calibrate_15m import (
     calibrate_15m,
     lock_params_json,
@@ -133,6 +139,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path for locked params JSON",
     )
 
+    c5 = sub.add_parser(
+        "calibrate-5m",
+        help="Calibrate AS params on 5m candles (IS Jan–Mar 2025); leaves 1h/15m locks untouched",
+    )
+    c5.add_argument("--timeframe", default="5m")
+    c5.add_argument("--seed", type=int, default=42)
+    c5.add_argument("--equity", type=float, default=1000.0)
+    c5.add_argument("--no-persist", action="store_true")
+    c5.add_argument("--write-config", action="store_true")
+    c5.add_argument("--lock-json", default="config/params_5m_v1_jfm2025.json")
+
     s15 = sub.add_parser(
         "stress-15m",
         help="Robustness battery on calibrated 15m params (blind post-OOS 2026)",
@@ -196,11 +213,15 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     # Keep frozen 1h YAML untouched: 15m commands default to the 15m config.
-    if args.command in {"calibrate-15m", "stress-15m"} and args.config in {
+    if args.command in {"calibrate-15m", "stress-15m", "calibrate-5m"} and args.config in {
         "config/market_making.yaml",
         None,
     }:
-        args.config = "config/market_making_15m.yaml"
+        args.config = (
+            "config/market_making_5m.yaml"
+            if args.command == "calibrate-5m"
+            else "config/market_making_15m.yaml"
+        )
     cfg = load_mm_config(args.config)
 
     if args.command == "explain-gate":
@@ -457,6 +478,38 @@ def main(argv: list[str] | None = None) -> int:
             paths["lock"] = lock_params_json(result, path=args.lock_json)
         if args.write_config:
             write_15m_params_to_yaml(args.config, result.selected_params)
+            paths["config"] = args.config
+        print(
+            json.dumps(
+                {
+                    **{k: getattr(result, k) for k in result.__dataclass_fields__},
+                    "artifacts": paths,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
+
+    
+    if args.command == "calibrate-5m":
+        result = calibrate_5m(
+            cfg,
+            timeframe=args.timeframe,
+            seed=args.seed,
+            portfolio_equity=args.equity,
+        )
+        paths = {}
+        if not args.no_persist:
+            paths = save_5m_calib(
+                result,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename="five_m_calib_is_202501_202503",
+            )
+            paths["lock"] = lock_5m_params_json(result, path=args.lock_json)
+        if args.write_config:
+            write_5m_params_to_yaml(args.config, result.selected_params)
             paths["config"] = args.config
         print(
             json.dumps(
