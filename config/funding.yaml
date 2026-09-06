@@ -1,0 +1,77 @@
+# Module 1 — perpetual funding-rate harvest (delta-neutral).
+# market_type is forced to swap in code even if omitted.
+
+exchange:
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: swap
+
+storage:
+  root: data
+
+funding:
+  lookback_days: 90
+  limit_per_request: 100
+  settlements_per_day: 3.0
+  min_abs_rate: 0.00001
+  persist_mode: both
+  default_symbols:
+    - BTC/USDT:USDT
+    - ETH/USDT:USDT
+    - SOL/USDT:USDT
+    - XRP/USDT:USDT
+    - DOGE/USDT:USDT
+    - LTC/USDT:USDT
+    - ADA/USDT:USDT
+    - LINK/USDT:USDT
+    - AVAX/USDT:USDT
+    - SUI/USDT:USDT
+    - APT/USDT:USDT
+    - NEAR/USDT:USDT
+    - ARB/USDT:USDT
+    - OP/USDT:USDT
+    - INJ/USDT:USDT
+    - FIL/USDT:USDT
+    - WLD/USDT:USDT
+    - ORDI/USDT:USDT
+
+ohlcv:
+  timeframe: 1h
+  lookback_days: 90
+
+fees:
+  spot_taker: 0.001
+  perp_taker: 0.0005
+  use_taker: true
+
+capacity:
+  min_quote_volume_24h: 1000000
+  max_adv_fraction: 0.01
+  max_notional_usdt: 50000
+
+risk:
+  equity_usdt: 10000
+  max_name_fraction: 0.25
+  target_gross_fraction: 0.5
+  min_notional_usdt: 50
+
+harvest:
+  expected_hold_days: 30
+  min_net_ann: 0.0
+  apply_persistence: true
+  apply_basis_drag: true
+
+walkforward:
+  train_settlements: 90
+  test_settlements: 90
+  step_settlements: 90
+  settlements_per_day: 3.0
+  min_abs_train_mean: 0.00001
+  require_train_edge: true
+  charge_fees_on_rebalance: true
+  charge_exit_fee: true
