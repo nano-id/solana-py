@@ -23,6 +23,7 @@ from market_making.calibrate_hourly import (
     fifo_hold_hours_from_fills,
     save_hourly_calib,
 )
+from market_making.stress_hourly import run_stress_battery, save_stress_battery
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -91,6 +92,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write selected params into --config YAML market_making block",
     )
+
+    st = sub.add_parser(
+        "stress-hourly",
+        help="Robustness battery on calibrated 1h params (blind 2026 window)",
+    )
+    st.add_argument("--timeframe", default="1h")
+    st.add_argument("--seed", type=int, default=42)
+    st.add_argument("--equity", type=float, default=1000.0)
+    st.add_argument("--no-persist", action="store_true")
 
     me = sub.add_parser(
         "simulate-month-events",
@@ -361,6 +371,45 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
+
+    if args.command == "stress-hourly":
+        result = run_stress_battery(
+            cfg,
+            timeframe=args.timeframe,
+            seed=args.seed,
+            initial_equity=args.equity,
+        )
+        paths = {}
+        if not args.no_persist:
+            paths = save_stress_battery(
+                result,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename="stress_hourly_blind_2026",
+            )
+        slim = {
+            "window": result.window,
+            "baseline_params": result.baseline_params,
+            "n_survived": result.n_survived,
+            "n_broken": result.n_broken,
+            "broken_names": result.broken_names,
+            "interpretation_allowed": False,
+            "cases": [
+                {
+                    "name": c.name,
+                    "risk": c.risk,
+                    "ret_pct": c.total_return_pct,
+                    "final": c.final_equity,
+                    "survived": c.survived,
+                    "broken": c.broken,
+                    "worst": c.worst_month,
+                }
+                for c in result.cases
+            ],
+            "artifacts": paths,
+        }
+        print(json.dumps(slim, indent=2, default=str))
+        return 0 if result.n_broken == 0 else 2
 
     if args.command == "simulate-month-events":
         result, rows, meta = run_month_events_paper(
