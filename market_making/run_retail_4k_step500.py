@@ -346,16 +346,33 @@ def run_dynamic(
     return result, pd.DataFrame(rows)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    p = argparse.ArgumentParser(description="Dynamic-slot retail MM paper runner")
+    p.add_argument("--equity", type=float, default=START_EQUITY)
+    p.add_argument(
+        "--tag",
+        type=str,
+        default="",
+        help="Output basename tag, e.g. 4k or 10k (default derived from equity)",
+    )
+    args = p.parse_args(argv)
+    start_eq = float(args.equity)
+    tag = args.tag.strip() or (
+        f"{int(start_eq/1000)}k" if start_eq >= 1000 and start_eq % 1000 == 0 else f"{int(start_eq)}"
+    )
+    basename = f"retail_{tag}_step500"
+
     uni = json.loads(Path("config/universe_100_sep2025_okx.json").read_text())
     symbols = list(uni["symbols"])
     # Retail hourly AS params (same gamma/kappa/tau/fill as 100-coin retail book)
     cfg_path = "config/retail_100coin_35k_v1.yaml"
     cfg = load_mm_config(cfg_path)
-    cfg = cfg.model_copy(update={"symbols": symbols, "portfolio_initial_equity": START_EQUITY})
+    cfg = cfg.model_copy(update={"symbols": symbols, "portfolio_initial_equity": start_eq})
 
     print(
-        f"Running $4k step+$500 windows on {len(symbols)} coins "
+        f"Running ${start_eq:.0f} step+$500 windows on {len(symbols)} coins "
         f"2025-09-01→2026-09-06 ...",
         flush=True,
     )
@@ -367,7 +384,7 @@ def main() -> int:
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
-    result, frame = run_dynamic(cfg, panel, stamps, seed=42, initial_equity=START_EQUITY)
+    result, frame = run_dynamic(cfg, panel, stamps, seed=42, initial_equity=start_eq)
 
     # monthly
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
@@ -390,7 +407,7 @@ def main() -> int:
     out = {
         "interpretation_allowed": False,
         "design": {
-            "start_equity": START_EQUITY,
+            "start_equity": start_eq,
             "base_slot": BASE_SLOT,
             "remnant_min": REMNANT_MIN,
             "slot_rule": "floor(eq/2000) full $2000 slots; if remainder>=500 open extra window with remainder",
@@ -403,15 +420,15 @@ def main() -> int:
         "result": asdict(result),
         "monthly": monthly,
     }
-    Path("config/retail_4k_step500_results.json").write_text(
+    Path(f"config/{basename}_results.json").write_text(
         json.dumps(out, indent=2, default=str)
     )
     art = Path("/opt/cursor/artifacts")
     art.mkdir(parents=True, exist_ok=True)
-    (art / "retail_4k_step500_results.json").write_text(
+    (art / f"{basename}_results.json").write_text(
         json.dumps(out, indent=2, default=str)
     )
-    frame.to_csv(art / "retail_4k_step500_equity.csv", index=False)
+    frame.to_csv(art / f"{basename}_equity.csv", index=False)
     print(
         f"  → {result.start_equity:.0f}→{result.final_equity:.2f} "
         f"({result.total_return_pct:.2f}%) entries={result.n_entries} "
@@ -425,7 +442,7 @@ def main() -> int:
             f"open≈{m['mean_open']:.1f}/{m['mean_allowed']:.1f}",
             flush=True,
         )
-    print("Wrote config/retail_4k_step500_results.json", flush=True)
+    print(f"Wrote config/{basename}_results.json", flush=True)
     return 0
 
 
