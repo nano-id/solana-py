@@ -44,27 +44,52 @@ REMNANT_MIN = 100.0
 SLOT_MAX_AT_EQUITY = 1_250.0
 
 
-def slot_size(equity: float) -> float:
+def slot_size(
+    equity: float,
+    *,
+    start_equity: float = START_EQUITY,
+    slot_min: float = SLOT_MIN,
+    slot_max: float = SLOT_MAX,
+    slot_max_at_equity: float = SLOT_MAX_AT_EQUITY,
+) -> float:
     eq = max(float(equity), 0.0)
-    if eq <= START_EQUITY:
-        return SLOT_MIN
-    if eq >= SLOT_MAX_AT_EQUITY:
-        return SLOT_MAX
-    return SLOT_MIN + (SLOT_MAX - SLOT_MIN) * (eq - START_EQUITY) / (
-        SLOT_MAX_AT_EQUITY - START_EQUITY
+    smin = float(slot_min)
+    smax = float(slot_max)
+    if smax <= smin + 1e-12:
+        return smin  # fixed window size
+    if eq <= start_equity:
+        return smin
+    if eq >= slot_max_at_equity:
+        return smax
+    return smin + (smax - smin) * (eq - start_equity) / (
+        slot_max_at_equity - start_equity
     )
 
 
-def slot_plan(equity: float) -> list[float]:
+def slot_plan(
+    equity: float,
+    *,
+    start_equity: float = START_EQUITY,
+    slot_min: float = SLOT_MIN,
+    slot_max: float = SLOT_MAX,
+    slot_max_at_equity: float = SLOT_MAX_AT_EQUITY,
+    remnant_min: float = REMNANT_MIN,
+) -> list[float]:
     eq = max(float(equity), 0.0)
-    base = slot_size(eq)
+    base = slot_size(
+        eq,
+        start_equity=start_equity,
+        slot_min=slot_min,
+        slot_max=slot_max,
+        slot_max_at_equity=slot_max_at_equity,
+    )
     if base <= 0:
         return []
     full = int(eq // base)
     rem = eq - full * base
-    if full <= 0 and rem >= REMNANT_MIN - 1e-9:
+    if full <= 0 and rem >= remnant_min - 1e-9:
         return [rem]
-    if rem >= REMNANT_MIN - 1e-9:
+    if rem >= remnant_min - 1e-9:
         return [base] * full + [rem]
     return [base] * max(full, 0)
 
@@ -119,6 +144,11 @@ def run_dynamic(
     seed: int = 42,
     initial_equity: float = START_EQUITY,
     monthly_deposit: float = MONTHLY_DEPOSIT,
+    start_equity: float = START_EQUITY,
+    slot_min: float = SLOT_MIN,
+    slot_max: float = SLOT_MAX,
+    slot_max_at_equity: float = SLOT_MAX_AT_EQUITY,
+    remnant_min: float = REMNANT_MIN,
 ) -> tuple[Result, pd.DataFrame]:
     symbols = list(panel.keys())
     n = len(next(iter(panel.values())))
@@ -127,6 +157,13 @@ def run_dynamic(
     rng = np.random.default_rng(seed + 77)
     look = max(int(cfg.vol_lookback), 8)
     mid_mat = {s: np.asarray(panel[s], dtype=float) for s in symbols}
+    slot_kw = dict(
+        start_equity=float(start_equity),
+        slot_min=float(slot_min),
+        slot_max=float(slot_max),
+        slot_max_at_equity=float(slot_max_at_equity),
+    )
+    remnant = float(remnant_min)
 
     cash = float(initial_equity)
     total_deposited = float(initial_equity)
@@ -226,10 +263,10 @@ def run_dynamic(
                 del slots[sym]
 
         eq_now = mark_equity(mids)
-        plan = slot_plan(eq_now)
+        plan = slot_plan(eq_now, remnant_min=remnant, **slot_kw)
         max_slots = max(len(plan), 1)
         peak_slots = max(peak_slots, max_slots)
-        base_now = slot_size(eq_now)
+        base_now = slot_size(eq_now, **slot_kw)
 
         if len(slots) >= max_slots:
             idle = [s for s in symbols if s not in slots]
@@ -407,7 +444,7 @@ def run_dynamic(
         interpretation_allowed=False,
         notes=(
             f"Start=${initial_equity:.0f} +${monthly_deposit:.0f}/mo; "
-            f"slot ${SLOT_MIN:.0f}→${SLOT_MAX:.0f}, remnant_min=${REMNANT_MIN:.0f}. "
+            f"slot ${slot_min:.0f}→${slot_max:.0f}, remnant_min=${remnant_min:.0f}. "
             f"Fee {cfg.commission_pct}%/side. Paper only."
         ),
         open_slots_end=sorted(slots.keys()),
@@ -416,45 +453,61 @@ def run_dynamic(
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="5m retail MM $250-slot paper forward")
-    p.add_argument(
-        "--monthly-deposit",
-        type=float,
-        default=0.0,
-        help="USDT added at each month boundary after the first (0 = no DCA)",
-    )
-    p.add_argument(
-        "--out-basename",
-        type=str,
-        default="",
-        help="Output basename under config/ and artifacts/ (auto if empty)",
-    )
+    p = argparse.ArgumentParser(description="5m retail MM dynamic-slot paper forward")
+    p.add_argument("--start-equity", type=float, default=START_EQUITY)
+    p.add_argument("--monthly-deposit", type=float, default=0.0)
+    p.add_argument("--slot-min", type=float, default=SLOT_MIN)
+    p.add_argument("--slot-max", type=float, default=SLOT_MAX)
+    p.add_argument("--slot-max-at-equity", type=float, default=SLOT_MAX_AT_EQUITY)
+    p.add_argument("--remnant-min", type=float, default=REMNANT_MIN)
+    p.add_argument("--out-basename", type=str, default="")
     args = p.parse_args(argv)
+
+    start_equity = float(args.start_equity)
     monthly_deposit = float(args.monthly_deposit)
+    slot_min = float(args.slot_min)
+    slot_max = float(args.slot_max)
+    slot_max_at = float(args.slot_max_at_equity)
+    remnant_min = float(args.remnant_min)
+
     if args.out_basename.strip():
         basename = args.out_basename.strip()
-    elif monthly_deposit > 0:
-        basename = f"forward_5m_250slots_dca{int(monthly_deposit)}_2026"
     else:
-        basename = "forward_5m_250slots_2026"
+        tag = f"{int(start_equity)}"
+        if monthly_deposit > 0:
+            tag += f"_dca{int(monthly_deposit)}"
+        if abs(slot_min - slot_max) < 1e-9:
+            tag += f"_slot{int(slot_min)}"
+        else:
+            tag += f"_slot{int(slot_min)}-{int(slot_max)}"
+        basename = f"forward_5m_{tag}_2026"
 
     cfg = load_mm_config("config/market_making_5m.yaml")
     symbols = list(cfg.symbols)
-    cfg = cfg.model_copy(update={"portfolio_initial_equity": START_EQUITY})
+    cfg = cfg.model_copy(update={"portfolio_initial_equity": start_equity})
 
     dca_note = (
-        f"+${monthly_deposit:.0f}/mo DCA"
-        if monthly_deposit > 0
-        else "no monthly DCA"
+        f"+${monthly_deposit:.0f}/mo DCA" if monthly_deposit > 0 else "no monthly DCA"
     )
     print(
-        f"Running 5m $250 start, slots ${SLOT_MIN:.0f}→${SLOT_MAX:.0f} "
-        f"({dca_note}, remnant≥${REMNANT_MIN:.0f}) on {len(symbols)} coins "
+        f"Running 5m ${start_equity:.0f} start, slots ${slot_min:.0f}→${slot_max:.0f} "
+        f"({dca_note}, remnant≥${remnant_min:.0f}) on {len(symbols)} coins "
         f"2026-01-01→2026-09-07 ...",
         flush=True,
     )
-    for e in (250, 400, 750, 1250, 2000, 3250):
-        print(f"  plan@{e}: size={slot_size(e):.1f} → {slot_plan(e)}", flush=True)
+    for e in (
+        start_equity,
+        start_equity * 1.5,
+        start_equity * 2,
+        start_equity * 3,
+        start_equity * 5,
+        start_equity * 10,
+    ):
+        print(
+            f"  plan@{e:.0f}: size={slot_size(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at):.1f} "
+            f"→ {slot_plan(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at, remnant_min=remnant_min)}",
+            flush=True,
+        )
 
     stamps, panel = load_aligned_panel(
         symbols,
@@ -470,8 +523,13 @@ def main(argv: list[str] | None = None) -> int:
         panel,
         stamps,
         seed=42,
-        initial_equity=START_EQUITY,
+        initial_equity=start_equity,
         monthly_deposit=monthly_deposit,
+        start_equity=start_equity,
+        slot_min=slot_min,
+        slot_max=slot_max,
+        slot_max_at_equity=slot_max_at,
+        remnant_min=remnant_min,
     )
 
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
@@ -498,20 +556,24 @@ def main(argv: list[str] | None = None) -> int:
     out = {
         "interpretation_allowed": False,
         "design": {
-            "start_equity": START_EQUITY,
+            "start_equity": start_equity,
             "monthly_deposit": monthly_deposit,
-            "slot_min": SLOT_MIN,
-            "slot_max": SLOT_MAX,
-            "remnant_min": REMNANT_MIN,
-            "slot_max_at_equity": SLOT_MAX_AT_EQUITY,
+            "slot_min": slot_min,
+            "slot_max": slot_max,
+            "remnant_min": remnant_min,
+            "slot_max_at_equity": slot_max_at,
             "slot_rule": (
-                "at $250 → two $100 windows; base slot scales $100→$250 with equity; "
-                "remainder>=$100 opens extra remnant window"
+                f"fixed ${slot_min:.0f} windows; remainder≥${remnant_min:.0f} opens extra"
+                if abs(slot_min - slot_max) < 1e-9
+                else (
+                    f"slot scales ${slot_min:.0f}→${slot_max:.0f}; "
+                    f"remainder≥${remnant_min:.0f} opens extra remnant window"
+                )
             ),
             "deposit_rule": (
                 f"+${monthly_deposit:.0f} at each month boundary after start"
                 if monthly_deposit > 0
-                else "none (compound from $250)"
+                else f"none (compound from ${start_equity:.0f})"
             ),
             "window": "2026-01-01→2026-09-07",
             "timeframe": "5m",
