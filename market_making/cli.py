@@ -28,6 +28,7 @@ from market_making.multi_portfolio import (
     run_multi_portfolio_range,
     save_multi_portfolio_artifacts,
 )
+from market_making.large_book_50k import calibrate_large_book_2025, save_large_book_calib
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,6 +119,14 @@ def build_parser() -> argparse.ArgumentParser:
     mp.add_argument("--slot-notional", type=float, default=3500.0)
     mp.add_argument("--seed", type=int, default=42)
     mp.add_argument("--no-persist", action="store_true")
+
+    lb = sub.add_parser(
+        "calibrate-large-50k",
+        help="Pre-2026 research: calibrate $50k capacity MM on 2025 IS/OOS",
+    )
+    lb.add_argument("--timeframe", default="1h")
+    lb.add_argument("--seed", type=int, default=42)
+    lb.add_argument("--no-persist", action="store_true")
 
     me = sub.add_parser(
         "simulate-month-events",
@@ -462,6 +471,25 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0 if result.n_entries > 0 else 3
+
+    if args.command == "calibrate-large-50k":
+        result = calibrate_large_book_2025(
+            cfg, timeframe=args.timeframe, seed=args.seed
+        )
+        paths = {}
+        if not args.no_persist:
+            paths = save_large_book_calib(result)
+        print(
+            json.dumps(
+                {
+                    **{k: getattr(result, k) for k in result.__dataclass_fields__},
+                    "artifacts": paths,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
 
     if args.command == "simulate-month-events":
         result, rows, meta = run_month_events_paper(
