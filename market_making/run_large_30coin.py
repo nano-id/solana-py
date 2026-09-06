@@ -67,12 +67,6 @@ def run_profile(
         initial_equity=float(profile["equity"]),
         max_slots=int(profile["max_slots"]),
         slot_notional_usd=float(profile["slot_notional"]),
-        notes=(
-            f"{profile['label']} {start}→{end_exclusive} 1h okx. "
-            f"n_symbols={len(cfg.symbols)} max_slots={profile['max_slots']} "
-            f"slot=${profile['slot_notional']:.2f} equity0=${profile['equity']:.0f}. "
-            "No busy-slot skip. Fee 0.07%/side. Not a live-edge claim."
-        ),
     )
     paths: dict[str, str] = {}
     if persist:
