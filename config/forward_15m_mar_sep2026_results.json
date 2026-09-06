@@ -1,0 +1,260 @@
+{
+  "interpretation_allowed": false,
+  "compounded_portfolio_1k": {
+    "interpretation_allowed": false,
+    "design": {
+      "params": "params_15m_v1_jf2026 (locked)",
+      "timeframe": "15m",
+      "window": "2026-03-01\u21922026-09-06 (Sep partial)",
+      "start_equity": 1000.0,
+      "n_symbols": 30,
+      "mode": "compounded_monthly_portfolio",
+      "note": "IS was Jan\u2013Feb 2026; this is post-calibration forward paper."
+    },
+    "final_equity": 4049.327424610823,
+    "total_return_pct": 304.9327424610823,
+    "n_pos_months": 7,
+    "n_neg_months": 0,
+    "monthly": [
+      {
+        "ym": "2026-03",
+        "start": 1000.0,
+        "end": 1237.470305367736,
+        "ret_pct": 23.747030536773604,
+        "n_entries": 123,
+        "n_round_trips": 122,
+        "n_skipped_busy": 7647,
+        "fees_paid": 47.00936791163389,
+        "n_bars": 2976,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-04",
+        "start": 1237.470305367736,
+        "end": 1484.1025327122316,
+        "ret_pct": 19.93035519920653,
+        "n_entries": 119,
+        "n_round_trips": 118,
+        "n_skipped_busy": 7402,
+        "fees_paid": 54.806545561221846,
+        "n_bars": 2880,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-05",
+        "start": 1484.1025327122316,
+        "end": 1973.8832831530524,
+        "ret_pct": 33.001813530075665,
+        "n_entries": 123,
+        "n_round_trips": 122,
+        "n_skipped_busy": 7647,
+        "fees_paid": 72.43680373580581,
+        "n_bars": 2976,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-06",
+        "start": 1973.8832831530524,
+        "end": 2721.4297278530203,
+        "ret_pct": 37.87186664379912,
+        "n_entries": 119,
+        "n_round_trips": 118,
+        "n_skipped_busy": 7404,
+        "fees_paid": 94.77931175297458,
+        "n_bars": 2880,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-07",
+        "start": 2721.4297278530203,
+        "end": 3288.657577285899,
+        "ret_pct": 20.843009232517424,
+        "n_entries": 123,
+        "n_round_trips": 122,
+        "n_skipped_busy": 7649,
+        "fees_paid": 125.9181192607438,
+        "n_bars": 2976,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-08",
+        "start": 3288.657577285899,
+        "end": 3888.5832616702405,
+        "ret_pct": 18.242266647884176,
+        "n_entries": 123,
+        "n_round_trips": 122,
+        "n_skipped_busy": 7647,
+        "fees_paid": 146.75949520758937,
+        "n_bars": 2976,
+        "net_positive": true
+      },
+      {
+        "ym": "2026-09",
+        "start": 3888.5832616702405,
+        "end": 4049.327424610823,
+        "ret_pct": 4.133746203277619,
+        "n_entries": 26,
+        "n_round_trips": 25,
+        "n_skipped_busy": 1306,
+        "fees_paid": 28.087708909401737,
+        "n_bars": 527,
+        "net_positive": true
+      }
+    ]
+  },
+  "multi_slot_10_5k": {
+    "interpretation_allowed": false,
+    "design": {
+      "params": "params_15m_v1_jf2026 (locked)",
+      "timeframe": "15m",
+      "window": "2026-03-01\u21922026-09-07",
+      "wallet": 10500.0,
+      "max_slots": 3,
+      "slot_notional": 3500.0,
+      "n_symbols": 30,
+      "mode": "multi_slot_continuous"
+    },
+    "result": {
+      "n_bars": 18191,
+      "n_entries": 2132,
+      "n_round_trips": 2132,
+      "n_buys": 6490,
+      "n_sells": 5612,
+      "n_skipped_busy": 39706,
+      "n_multi_signal_choices": 1617,
+      "max_slots": 3,
+      "slot_notional_usd": 3500.0,
+      "fees_paid": 2559.2631780894344,
+      "realized_pnl": 16208.391765505206,
+      "start_equity": 10500.0,
+      "final_equity": 24167.828801799806,
+      "total_return_pct": 130.1697981123791,
+      "net_positive": true,
+      "active_symbol_bars": {
+        "BTC/USDT": 229,
+        "ETH/USDT": 629,
+        "BNB/USDT": 200,
+        "SOL/USDT": 958,
+        "XRP/USDT": 851,
+        "DOGE/USDT": 1568,
+        "ADA/USDT": 2304,
+        "TRX/USDT": 453,
+        "AVAX/USDT": 1965,
+        "LINK/USDT": 1670,
+        "DOT/USDT": 2118,
+        "LTC/USDT": 1119,
+        "BCH/USDT": 1662,
+        "UNI/USDT": 2101,
+        "ATOM/USDT": 950,
+        "NEAR/USDT": 2808,
+        "APT/USDT": 3019,
+        "ARB/USDT": 2416,
+        "OP/USDT": 3280,
+        "SUI/USDT": 2682,
+        "FIL/USDT": 2552,
+        "AAVE/USDT": 1895,
+        "INJ/USDT": 2845,
+        "ICP/USDT": 1828,
+        "SHIB/USDT": 1138,
+        "PEPE/USDT": 2082,
+        "WLD/USDT": 3664,
+        "TIA/USDT": 2761,
+        "POL/USDT": 1832,
+        "OKB/USDT": 827
+      },
+      "symbols": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "BNB/USDT",
+        "SOL/USDT",
+        "XRP/USDT",
+        "DOGE/USDT",
+        "ADA/USDT",
+        "TRX/USDT",
+        "AVAX/USDT",
+        "LINK/USDT",
+        "DOT/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
+        "UNI/USDT",
+        "ATOM/USDT",
+        "NEAR/USDT",
+        "APT/USDT",
+        "ARB/USDT",
+        "OP/USDT",
+        "SUI/USDT",
+        "FIL/USDT",
+        "AAVE/USDT",
+        "INJ/USDT",
+        "ICP/USDT",
+        "SHIB/USDT",
+        "PEPE/USDT",
+        "WLD/USDT",
+        "TIA/USDT",
+        "POL/USDT",
+        "OKB/USDT"
+      ],
+      "commission_pct": 0.07,
+      "interpretation_allowed": false,
+      "notes": "Multi-slot 2026-03-01\u21922026-09-07 15m on okx. n_symbols=30 n_bars=18191 max_slots=3 slot=$3500 equity0=$10500. Fee 0.07%/side. Not a live-edge claim.",
+      "open_slots_end": []
+    },
+    "monthly": [
+      {
+        "ym": "2026-03",
+        "start": 10499.833229082122,
+        "end": 12323.133331006895,
+        "ret_pct": 17.36503868342072,
+        "mean_open": 2.990255376344086
+      },
+      {
+        "ym": "2026-04",
+        "start": 12323.185318301377,
+        "end": 14230.893998924614,
+        "ret_pct": 15.480645882928211,
+        "mean_open": 2.9923611111111112
+      },
+      {
+        "ym": "2026-05",
+        "start": 14233.207960176596,
+        "end": 16561.45090953296,
+        "ret_pct": 16.35782288764842,
+        "mean_open": 2.9885752688172045
+      },
+      {
+        "ym": "2026-06",
+        "start": 16591.46227071586,
+        "end": 19011.48669624649,
+        "ret_pct": 14.58596226206057,
+        "mean_open": 2.990625
+      },
+      {
+        "ym": "2026-07",
+        "start": 19016.08046758582,
+        "end": 21090.06187518836,
+        "ret_pct": 10.906461040369386,
+        "mean_open": 2.991263440860215
+      },
+      {
+        "ym": "2026-08",
+        "start": 21095.760395021123,
+        "end": 23458.08712125708,
+        "ret_pct": 11.198111288718927,
+        "mean_open": 2.993951612903226
+      },
+      {
+        "ym": "2026-09",
+        "start": 23463.58330186158,
+        "end": 24167.828801799806,
+        "ret_pct": 3.0014405339458428,
+        "mean_open": 2.984819734345351
+      }
+    ],
+    "artifacts": {
+      "summary": "data/okx/market_making/forward_15m_mar_sep2026_multi3.json",
+      "csv": "data/okx/market_making/forward_15m_mar_sep2026_multi3.csv",
+      "artifact_json": "/opt/cursor/artifacts/forward_15m_mar_sep2026_multi3.json",
+      "artifact_csv": "/opt/cursor/artifacts/forward_15m_mar_sep2026_multi3.csv"
+    }
+  }
+}
