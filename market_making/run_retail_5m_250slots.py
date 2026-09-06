@@ -36,7 +36,7 @@ from market_making.portfolio import load_aligned_panel
 from market_making.simulator import _fill_prob
 
 START_EQUITY = 250.0
-MONTHLY_DEPOSIT = 0.0  # no DCA; pure compound from $250
+MONTHLY_DEPOSIT = 0.0
 SLOT_MIN = 100.0
 SLOT_MAX = 250.0
 REMNANT_MIN = 100.0
@@ -124,12 +124,13 @@ def run_dynamic(
     flat_eps = float(cfg.portfolio_flat_eps)
     sc = cfg.sim
     rng = np.random.default_rng(seed + 77)
+    look = max(int(cfg.vol_lookback), 8)
+    mid_mat = {s: np.asarray(panel[s], dtype=float) for s in symbols}
 
     cash = float(initial_equity)
     total_deposited = float(initial_equity)
     n_deposits = 0
     slots: dict[str, SlotState] = {}
-    hist: dict[str, list[float]] = {s: [] for s in symbols}
 
     n_entries = n_rt = n_buys = n_sells = n_busy = n_multi = 0
     fees_total = realized_total = 0.0
@@ -140,6 +141,7 @@ def run_dynamic(
 
     ts_index = pd.to_datetime(pd.Index(timestamps), utc=True)
     prev_ym: str | None = None
+    record_every = 12
 
     def mark_equity(mids: dict[str, float]) -> float:
         eq = cash
@@ -159,10 +161,12 @@ def run_dynamic(
         eng = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
         return SlotState(symbol=sym, inv=inv, eng=eng, notional_budget=budget)
 
+    def mid_window(sym: str, i: int) -> np.ndarray:
+        lo = 0 if i + 1 <= look else i + 1 - look
+        return mid_mat[sym][lo : i + 1]
+
     for i in range(n):
-        mids = {s: float(panel[s][i]) for s in symbols}
-        for s in symbols:
-            hist[s].append(mids[s])
+        mids = {s: float(mid_mat[s][i]) for s in symbols}
         ts_val = ts_index[i]
         ym = str(ts_val.strftime("%Y-%m"))
         deposit_this = 0.0
@@ -182,7 +186,7 @@ def run_dynamic(
             slot = slots[sym]
             mid = mids[sym]
             budget = slot.notional_budget
-            q = slot.eng.quote(mid, slot.inv, mid_history=np.asarray(hist[sym], float))
+            q = slot.eng.quote(mid, slot.inv, mid_history=mid_window(sym, i))
             if q.quoting:
                 if q.bid_size > 0 and rng.random() < _fill_prob(
                     mid, q.bid, q.half_spread_bps, sc.fill_prob
@@ -204,9 +208,7 @@ def run_dynamic(
                 ):
                     sell_sz = min(q.ask_size, max(slot.inv.base, 0.0))
                     if sell_sz > flat_eps:
-                        px = q.ask * (
-                            1.0 - sc.adverse_frac * (q.half_spread_bps / 1e4)
-                        )
+                        px = q.ask * (1.0 - sc.adverse_frac * (q.half_spread_bps / 1e4))
                         fee = fee_on_notional(px * sell_sz, cfg)
                         cash += px * sell_sz - fee
                         prev = slot.inv.realized_pnl
@@ -229,29 +231,29 @@ def run_dynamic(
         base_now = slot_size(eq_now)
 
         if len(slots) >= max_slots:
-            for s in symbols:
-                if s in slots:
-                    continue
+            idle = [s for s in symbols if s not in slots]
+            if idle:
+                s = idle[int(rng.integers(0, len(idle)))]
                 mid_s = mids[s]
-                if mid_s <= 0 or not np.isfinite(mid_s):
-                    continue
-                bud = plan[-1] if plan else base_now
-                max_inv = max(bud / mid_s, 1e-12)
-                probe = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
-                flat = InventoryState(
-                    base=0.0,
-                    quote=0.0,
-                    target=0.0,
-                    max_abs=max_inv,
-                    halt_frac=cfg.inventory_halt_frac,
-                )
-                q_s = probe.quote(mid_s, flat, mid_history=np.asarray(hist[s], float))
-                if not q_s.quoting or q_s.net_edge_bps_if_matched <= 0:
-                    continue
-                if rng.random() < _fill_prob(
-                    mid_s, q_s.bid, q_s.half_spread_bps, sc.fill_prob
-                ):
-                    n_busy += 1
+                if mid_s > 0 and np.isfinite(mid_s):
+                    bud = plan[-1] if plan else base_now
+                    max_inv = max(bud / mid_s, 1e-12)
+                    probe = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
+                    flat = InventoryState(
+                        base=0.0,
+                        quote=0.0,
+                        target=0.0,
+                        max_abs=max_inv,
+                        halt_frac=cfg.inventory_halt_frac,
+                    )
+                    q_s = probe.quote(mid_s, flat, mid_history=mid_window(s, i))
+                    if (
+                        q_s.quoting
+                        and q_s.net_edge_bps_if_matched > 0
+                        and rng.random()
+                        < _fill_prob(mid_s, q_s.bid, q_s.half_spread_bps, sc.fill_prob)
+                    ):
+                        n_busy += 1
 
         free = max_slots - len(slots)
         if free > 0 and plan:
@@ -284,7 +286,7 @@ def run_dynamic(
                     max_abs=max_inv,
                     halt_frac=cfg.inventory_halt_frac,
                 )
-                q = local.quote(mid, flat, mid_history=np.asarray(hist[s], float))
+                q = local.quote(mid, flat, mid_history=mid_window(s, i))
                 if (
                     not q.quoting
                     or q.net_edge_bps_if_matched <= 0
@@ -313,7 +315,7 @@ def run_dynamic(
                     max_abs=max_inv,
                     halt_frac=cfg.inventory_halt_frac,
                 )
-                q1 = local.quote(mid, flat, mid_history=np.asarray(hist[sym], float))
+                q1 = local.quote(mid, flat, mid_history=mid_window(sym, i))
                 if not q1.quoting or q1.bid_size <= 0:
                     remaining_plan.insert(0, budget)
                     continue
@@ -336,28 +338,36 @@ def run_dynamic(
                 free -= 1
 
         open_hist.append(len(slots))
-        rows.append(
-            {
-                "bar": i,
-                "timestamp": ts_val,
-                "cash": cash,
-                "equity": mark_equity(mids),
-                "deposit": deposit_this,
-                "total_deposited": total_deposited,
-                "slot_size": base_now,
-                "n_open_slots": len(slots),
-                "max_slots_allowed": max_slots,
-                "open_symbols": ",".join(sorted(slots.keys())),
-                "opened": ",".join(opened),
-                "closed": ",".join(closed),
-                "n_candidates": n_cand,
-                "fees_cum": fees_total,
-                "realized_pnl": realized_total,
-            }
-        )
+        if i % record_every == 0 or i == n - 1 or opened or closed or deposit_this:
+            rows.append(
+                {
+                    "bar": i,
+                    "timestamp": ts_val,
+                    "cash": cash,
+                    "equity": mark_equity(mids),
+                    "deposit": deposit_this,
+                    "total_deposited": total_deposited,
+                    "slot_size": base_now,
+                    "n_open_slots": len(slots),
+                    "max_slots_allowed": max_slots,
+                    "open_symbols": ",".join(sorted(slots.keys())),
+                    "opened": ",".join(opened),
+                    "closed": ",".join(closed),
+                    "n_candidates": n_cand,
+                    "fees_cum": fees_total,
+                    "realized_pnl": realized_total,
+                }
+            )
+
+        if i > 0 and i % 10000 == 0:
+            print(
+                f"  … bar {i}/{n} equity={mark_equity(mids):.2f} "
+                f"open={len(slots)} entries={n_entries}",
+                flush=True,
+            )
 
     if slots:
-        last = {s: float(panel[s][-1]) for s in symbols}
+        last = {s: float(mid_mat[s][-1]) for s in symbols}
         for sym, slot in list(slots.items()):
             cash += slot.inv.base * last[sym]
             slot.inv.base = 0.0
@@ -395,7 +405,7 @@ def run_dynamic(
         n_deposits=n_deposits,
         interpretation_allowed=False,
         notes=(
-            f"DCA start=${initial_equity:.0f} +${monthly_deposit:.0f}/mo; "
+            f"Start=${initial_equity:.0f} +${monthly_deposit:.0f}/mo; "
             f"slot ${SLOT_MIN:.0f}→${SLOT_MAX:.0f}, remnant_min=${REMNANT_MIN:.0f}. "
             f"Fee {cfg.commission_pct}%/side. Paper only."
         ),
@@ -425,8 +435,14 @@ def main() -> int:
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
+    print(f"  loaded {len(stamps)} bars × {len(panel)} symbols", flush=True)
     result, frame = run_dynamic(
-        cfg, panel, stamps, seed=42, initial_equity=START_EQUITY, monthly_deposit=0.0
+        cfg,
+        panel,
+        stamps,
+        seed=42,
+        initial_equity=START_EQUITY,
+        monthly_deposit=0.0,
     )
 
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)

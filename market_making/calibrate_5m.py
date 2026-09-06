@@ -94,6 +94,21 @@ def _eval_months(
     }
 
 
+def _eval_one_trial(payload: dict[str, Any]) -> tuple[int, dict[str, float], dict[str, float]]:
+    """Worker: evaluate one grid point on IS months. Picklable for ProcessPool."""
+    cfg = MarketMakingConfig.model_validate(payload["cfg"])
+    params = payload["params"]
+    idx = int(payload["idx"])
+    trial = _apply_params(cfg, params)
+    is_stats = _eval_months(
+        trial,
+        [tuple(m) for m in payload["is_months"]],
+        timeframe=str(payload["timeframe"]),
+        seed=int(payload["seed"]),
+    )
+    return idx, params, is_stats
+
+
 def default_5m_param_grid() -> list[dict[str, float]]:
     """Compact grid in 5m bar units (≈ same wall-clock as frozen 1h grid).
 
