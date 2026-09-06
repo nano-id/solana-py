@@ -1,0 +1,27 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+
+# Market data (large; regenerate via pairs-data sync)
+/data/
+
+# Secrets / local overrides
+.env
+config/local.yaml
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
