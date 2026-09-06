@@ -16,9 +16,29 @@ market_making:
   - XRP/USDT
   - DOGE/USDT
   - ADA/USDT
-  - UNI/USDT
+  - TRX/USDT
+  - AVAX/USDT
+  - LINK/USDT
+  - DOT/USDT
   - LTC/USDT
+  - BCH/USDT
+  - UNI/USDT
+  - ATOM/USDT
+  - NEAR/USDT
+  - APT/USDT
+  - ARB/USDT
+  - OP/USDT
   - SUI/USDT
+  - FIL/USDT
+  - AAVE/USDT
+  - INJ/USDT
+  - ICP/USDT
+  - SHIB/USDT
+  - PEPE/USDT
+  - WLD/USDT
+  - TIA/USDT
+  - POL/USDT
+  - OKB/USDT
   commission_pct: 0.07
   edge_buffer_bps: 5.0
   min_half_spread_bps: 12.0
@@ -37,7 +57,7 @@ market_making:
   adverse_vol_mult: 0.45
   liq_bps: 6.0
   use_as_quotes: true
-  portfolio_initial_equity: 1000.0
+  portfolio_initial_equity: 10500.0
   portfolio_position_frac: 1.0
   realtime_poll_sec: 1.0
   portfolio_flat_eps: 1.0e-08

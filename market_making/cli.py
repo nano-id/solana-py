@@ -24,6 +24,10 @@ from market_making.calibrate_hourly import (
     save_hourly_calib,
 )
 from market_making.stress_hourly import run_stress_battery, save_stress_battery
+from market_making.multi_portfolio import (
+    run_multi_portfolio_range,
+    save_multi_portfolio_artifacts,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -101,6 +105,19 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--seed", type=int, default=42)
     st.add_argument("--equity", type=float, default=1000.0)
     st.add_argument("--no-persist", action="store_true")
+
+    mp = sub.add_parser(
+        "simulate-multi-portfolio",
+        help="Multi-slot wallet MM (max N concurrent fixed-notional slots)",
+    )
+    mp.add_argument("--start", default="2026-01-01")
+    mp.add_argument("--end", default="2026-09-06", help="Exclusive end date YYYY-MM-DD")
+    mp.add_argument("--timeframe", default="1h")
+    mp.add_argument("--equity", type=float, default=10500.0)
+    mp.add_argument("--max-slots", type=int, default=3)
+    mp.add_argument("--slot-notional", type=float, default=3500.0)
+    mp.add_argument("--seed", type=int, default=42)
+    mp.add_argument("--no-persist", action="store_true")
 
     me = sub.add_parser(
         "simulate-month-events",
@@ -410,6 +427,41 @@ def main(argv: list[str] | None = None) -> int:
         }
         print(json.dumps(slim, indent=2, default=str))
         return 0 if result.n_broken == 0 else 2
+
+    if args.command == "simulate-multi-portfolio":
+        result, frame = run_multi_portfolio_range(
+            cfg,
+            start=args.start,
+            end_exclusive=args.end,
+            timeframe=args.timeframe,
+            seed=args.seed,
+            initial_equity=args.equity,
+            max_slots=args.max_slots,
+            slot_notional_usd=args.slot_notional,
+        )
+        paths = {}
+        if not args.no_persist:
+            paths = save_multi_portfolio_artifacts(
+                result,
+                frame,
+                root=cfg.storage_root,
+                exchange_id=cfg.exchange_id,
+                basename=(
+                    f"multi{len(cfg.symbols)}_slots{args.max_slots}_"
+                    f"{int(args.equity)}_{args.start.replace('-', '')}"
+                ),
+            )
+        print(
+            json.dumps(
+                {
+                    **{k: getattr(result, k) for k in result.__dataclass_fields__},
+                    "artifacts": paths,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        return 0 if result.n_entries > 0 else 3
 
     if args.command == "simulate-month-events":
         result, rows, meta = run_month_events_paper(
