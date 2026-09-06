@@ -1,0 +1,176 @@
+{
+  "interpretation_allowed": false,
+  "timeframe": "15m",
+  "window": [
+    "2026-04",
+    "2026-05",
+    "2026-06",
+    "2026-07",
+    "2026-08"
+  ],
+  "baseline_params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 192.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.45,
+    "vol_lookback": 768,
+    "ewma_halflife": 384.0,
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55,
+    "commission_pct": 0.07
+  },
+  "n_survived": 21,
+  "n_broken": 0,
+  "broken_names": [],
+  "method": "15m stress battery; window=[(2026, 4), (2026, 5), (2026, 6), (2026, 7), (2026, 8)]; mirrors hourly risks on 15m candles. Not a live-edge claim.",
+  "cases": [
+    {
+      "name": "baseline",
+      "risk": "control",
+      "total_return_pct": 214.2364907507549,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "fill_prob_0.15",
+      "risk": "fill_model",
+      "total_return_pct": 72.8138530573937,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "fill_prob_0.10",
+      "risk": "fill_model",
+      "total_return_pct": 45.63419652220598,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "adverse_0.70",
+      "risk": "adverse_selection",
+      "total_return_pct": 94.66815380585822,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "adverse_0.85",
+      "risk": "adverse_selection",
+      "total_return_pct": 20.47645893506708,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "fill_adverse_harsh",
+      "risk": "fill_model+adverse",
+      "total_return_pct": 8.086353584356903,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "fee_0.10pct",
+      "risk": "fees",
+      "total_return_pct": 187.53784420130114,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "fee_0.15pct",
+      "risk": "fees",
+      "total_return_pct": 148.03778692687126,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "size_frac_0.25",
+      "risk": "size_liquidity",
+      "total_return_pct": 840.9024429456939,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "size_frac_0.05",
+      "risk": "size_liquidity",
+      "total_return_pct": 59.198168098985846,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "halt_0.50",
+      "risk": "inventory",
+      "total_return_pct": 214.2364907507549,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "seed_7",
+      "risk": "seed_sensitivity",
+      "total_return_pct": 161.3109633408886,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "seed_99",
+      "risk": "seed_sensitivity",
+      "total_return_pct": 157.0902733282035,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "universe_no_doge_sui",
+      "risk": "universe",
+      "total_return_pct": 161.95465341293547,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "universe_majors4",
+      "risk": "universe",
+      "total_return_pct": 58.6112468783934,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "drop_best_month_feb",
+      "risk": "regime",
+      "total_return_pct": 365.9527578438348,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "h1_only",
+      "risk": "regime",
+      "total_return_pct": 312.7485279391544,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "h2_only",
+      "risk": "regime",
+      "total_return_pct": 42.88751320204081,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "param_gamma_down",
+      "risk": "param_perturbation",
+      "total_return_pct": 103.31486133689009,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "param_tau_16",
+      "risk": "param_perturbation",
+      "total_return_pct": 31.86656211373463,
+      "survived": true,
+      "broken": false
+    },
+    {
+      "name": "kitchen_sink",
+      "risk": "combined",
+      "total_return_pct": 23.288854874087612,
+      "survived": true,
+      "broken": false
+    }
+  ]
+}

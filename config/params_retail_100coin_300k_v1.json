@@ -1,0 +1,8 @@
+{
+  "label": "retail_100coin_300k_v1",
+  "wallet": 300000.0,
+  "max_slots": 85,
+  "slot_notional": 3500.0,
+  "n_symbols": 100,
+  "interpretation_allowed": false
+}
