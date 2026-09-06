@@ -11,8 +11,8 @@ window opens (same pattern as the $2k/$500 rule, scaled down).
 
 Deposits
 --------
-Start $250. No monthly deposits (PnL compounds). Extra remnant window
-when remainder ≥ $100. At $250 equity → two $100 windows.
+Start $250. Optional monthly DCA (default off; use --monthly-deposit 250).
+Extra remnant window when remainder ≥ $100. At $250 equity → two $100 windows.
 
 Forward window: 2026-01-01 → 2026-09-07, OKX 5m.
 interpretation_allowed=false.
@@ -20,6 +20,7 @@ interpretation_allowed=false.
 
 from __future__ import annotations
 
+import argparse
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -414,14 +415,42 @@ def run_dynamic(
     return result, pd.DataFrame(rows)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="5m retail MM $250-slot paper forward")
+    p.add_argument(
+        "--monthly-deposit",
+        type=float,
+        default=0.0,
+        help="USDT added at each month boundary after the first (0 = no DCA)",
+    )
+    p.add_argument(
+        "--out-basename",
+        type=str,
+        default="",
+        help="Output basename under config/ and artifacts/ (auto if empty)",
+    )
+    args = p.parse_args(argv)
+    monthly_deposit = float(args.monthly_deposit)
+    if args.out_basename.strip():
+        basename = args.out_basename.strip()
+    elif monthly_deposit > 0:
+        basename = f"forward_5m_250slots_dca{int(monthly_deposit)}_2026"
+    else:
+        basename = "forward_5m_250slots_2026"
+
     cfg = load_mm_config("config/market_making_5m.yaml")
     symbols = list(cfg.symbols)
     cfg = cfg.model_copy(update={"portfolio_initial_equity": START_EQUITY})
 
+    dca_note = (
+        f"+${monthly_deposit:.0f}/mo DCA"
+        if monthly_deposit > 0
+        else "no monthly DCA"
+    )
     print(
         f"Running 5m $250 start, slots ${SLOT_MIN:.0f}→${SLOT_MAX:.0f} "
-        f"(no monthly DCA) on {len(symbols)} coins 2026-01-01→2026-09-07 ...",
+        f"({dca_note}, remnant≥${REMNANT_MIN:.0f}) on {len(symbols)} coins "
+        f"2026-01-01→2026-09-07 ...",
         flush=True,
     )
     for e in (250, 400, 750, 1250, 2000, 3250):
@@ -442,7 +471,7 @@ def main() -> int:
         stamps,
         seed=42,
         initial_equity=START_EQUITY,
-        monthly_deposit=0.0,
+        monthly_deposit=monthly_deposit,
     )
 
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
@@ -470,7 +499,7 @@ def main() -> int:
         "interpretation_allowed": False,
         "design": {
             "start_equity": START_EQUITY,
-            "monthly_deposit": 0.0,
+            "monthly_deposit": monthly_deposit,
             "slot_min": SLOT_MIN,
             "slot_max": SLOT_MAX,
             "remnant_min": REMNANT_MIN,
@@ -479,7 +508,11 @@ def main() -> int:
                 "at $250 → two $100 windows; base slot scales $100→$250 with equity; "
                 "remainder>=$100 opens extra remnant window"
             ),
-            "deposit_rule": "none (compound from $250)",
+            "deposit_rule": (
+                f"+${monthly_deposit:.0f} at each month boundary after start"
+                if monthly_deposit > 0
+                else "none (compound from $250)"
+            ),
             "window": "2026-01-01→2026-09-07",
             "timeframe": "5m",
             "n_symbols_used": len(symbols),
@@ -488,15 +521,15 @@ def main() -> int:
         "result": asdict(result),
         "monthly": monthly,
     }
-    Path("config/forward_5m_250slots_2026_results.json").write_text(
+    Path(f"config/{basename}_results.json").write_text(
         json.dumps(out, indent=2, default=str)
     )
     art = Path("/opt/cursor/artifacts")
     art.mkdir(parents=True, exist_ok=True)
-    (art / "forward_5m_250slots_2026_results.json").write_text(
+    (art / f"{basename}_results.json").write_text(
         json.dumps(out, indent=2, default=str)
     )
-    frame.to_csv(art / "forward_5m_250slots_2026_equity.csv", index=False)
+    frame.to_csv(art / f"{basename}_equity.csv", index=False)
     print(
         f"  → start {result.start_equity:.0f} deposited {result.total_deposited:.0f} "
         f"→ final {result.final_equity:.2f} "
@@ -514,7 +547,7 @@ def main() -> int:
             f"slot≈{m['mean_slot_size']:.0f}",
             flush=True,
         )
-    print("Wrote config/forward_5m_250slots_2026_results.json", flush=True)
+    print(f"Wrote config/{basename}_results.json", flush=True)
     return 0
 
 
