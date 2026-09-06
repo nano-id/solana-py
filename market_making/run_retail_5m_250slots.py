@@ -461,6 +461,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--slot-max-at-equity", type=float, default=SLOT_MAX_AT_EQUITY)
     p.add_argument("--remnant-min", type=float, default=REMNANT_MIN)
     p.add_argument("--out-basename", type=str, default="")
+    p.add_argument("--config", type=str, default="config/market_making_5m.yaml")
+    p.add_argument("--start", type=str, default="2026-01-01")
+    p.add_argument("--end-exclusive", type=str, default="2026-09-07")
     args = p.parse_args(argv)
 
     start_equity = float(args.start_equity)
@@ -482,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
             tag += f"_slot{int(slot_min)}-{int(slot_max)}"
         basename = f"forward_5m_{tag}_2026"
 
-    cfg = load_mm_config("config/market_making_5m.yaml")
+    cfg = load_mm_config(args.config)
     symbols = list(cfg.symbols)
     cfg = cfg.model_copy(update={"portfolio_initial_equity": start_equity})
 
@@ -492,7 +495,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Running 5m ${start_equity:.0f} start, slots ${slot_min:.0f}→${slot_max:.0f} "
         f"({dca_note}, remnant≥${remnant_min:.0f}) on {len(symbols)} coins "
-        f"2026-01-01→2026-09-07 ...",
+        f"{args.start}→{args.end_exclusive} ...",
         flush=True,
     )
     for e in (
@@ -512,8 +515,8 @@ def main(argv: list[str] | None = None) -> int:
     stamps, panel = load_aligned_panel(
         symbols,
         timeframe="5m",
-        start="2026-01-01",
-        end_exclusive="2026-09-07",
+        start=args.start,
+        end_exclusive=args.end_exclusive,
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
@@ -575,7 +578,7 @@ def main(argv: list[str] | None = None) -> int:
                 if monthly_deposit > 0
                 else f"none (compound from ${start_equity:.0f})"
             ),
-            "window": "2026-01-01→2026-09-07",
+            "window": f"{args.start}→{args.end_exclusive}",
             "timeframe": "5m",
             "n_symbols_used": len(symbols),
             "params": "params_5m_v1_jfm2025 (locked after Jan–Mar 2025 calib)",

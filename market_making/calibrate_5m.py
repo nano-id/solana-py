@@ -336,8 +336,9 @@ def lock_params_json(
     commission_pct: float = 0.07,
 ) -> str:
     path = Path(path)
+    is_tag = "_".join(f"{y:04d}{m:02d}" for y, m in result.is_months)
     payload = {
-        "label": "five_m_v1_is_202501_202503",
+        "label": f"five_m_is_{is_tag}",
         "created_from": "market_making.calibrate_5m",
         "timeframe": "5m",
         "hours_per_bar": HOURS_PER_BAR,
