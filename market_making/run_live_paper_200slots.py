@@ -1,9 +1,11 @@
-"""$200 dual-slot live-BBO paper bot (NOT live orders).
+"""$200 dual-slot live paper bot — 5m candle clock (decision @ 4:59).
 
 Evidence step (live edge ladder)
 --------------------------------
-1. Candle paper          → regime / param sanity (done; not live-edge)
-2. Live BBO paper fills  → THIS MODULE (real books, simulated maker fills)
+1. Candle paper (hist 5m close) → regime / param sanity
+2. Live candle-clock paper fills → THIS MODULE
+   - Poll BBO, but **trade only once per 5m bar**
+   - Decision price = mid at second 299 of the bar (4m59s)
 3. Tiny live maker orders → real edge claim only after sustained step-2 + step-3
 
 Capital rule
@@ -22,7 +24,7 @@ import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
 import pandas as pd
@@ -30,15 +32,17 @@ import pandas as pd
 from market_making.config import load_mm_config
 from market_making.engine import Quote, QuoteEngine
 from market_making.fees import fee_on_notional
-from market_making.feed import BookSnapshot, poll_book_events
+from market_making.feed import BookSnapshot, connect_spot_exchange, snapshot_from_order_book
 from market_making.inventory import InventoryState
 from market_making.realtime import _touch_fill_prob
-from market_making.run_retail_5m_250slots import slot_plan, slot_size
+from market_making.run_retail_5m_250slots import slot_plan
 
 START_EQUITY = 200.0
 SLOT_MIN = 100.0
 SLOT_MAX = 100.0
 REMNANT_MIN = 100.0
+BAR_SEC = 300
+DECISION_SEC_IN_BAR = 299  # 4m59s
 
 
 @dataclass
@@ -47,12 +51,13 @@ class SlotState:
     inv: InventoryState
     eng: QuoteEngine
     notional_budget: float
-    entry_ts_ms: int | None = None
+    entry_bar_id: int | None = None
 
 
 @dataclass
 class EvidenceResult:
-    n_events: int
+    n_polls: int
+    n_decision_bars: int
     n_entries: int
     n_round_trips: int
     n_buys: int
@@ -64,18 +69,19 @@ class EvidenceResult:
     total_return_pct: float
     peak_slots: int
     mean_open_slots: float
-    hold_seconds_mean: float | None
-    hold_seconds_median: float | None
+    hold_bars_mean: float | None
+    hold_bars_median: float | None
     n_holds: int
     duration_sec: float
     poll_sec: float
     n_symbols: int
     fill_prob: float
     adverse_frac: float
+    decision_sec_in_bar: int
     interpretation_allowed: bool
     evidence_tier: str
     notes: str
-    holds_sec: list[float] = field(default_factory=list)
+    holds_bars: list[float] = field(default_factory=list)
 
 
 def _score(q: Quote) -> float:
@@ -84,14 +90,97 @@ def _score(q: Quote) -> float:
     return float(q.net_edge_bps_if_matched)
 
 
-def run_dual_slot_live_paper(
+def _bar_id(ts_ms: int) -> int:
+    return int(ts_ms // (BAR_SEC * 1000))
+
+
+def _sec_in_bar(ts_ms: int) -> int:
+    return int((ts_ms // 1000) % BAR_SEC)
+
+
+def poll_books_once(
+    exchange, symbols: list[str], *, exchange_id: str
+) -> dict[str, BookSnapshot]:
+    out: dict[str, BookSnapshot] = {}
+    now_ms = int(time.time() * 1000)
+    for sym in symbols:
+        try:
+            book = exchange.fetch_order_book(sym, limit=5)
+        except Exception:
+            continue
+        snap = snapshot_from_order_book(
+            sym, book, exchange_id=exchange_id, ts_ms=now_ms
+        )
+        if snap is not None and snap.valid:
+            out[sym] = snap
+    return out
+
+
+def iter_candle_decision_books(
+    symbols: list[str],
+    *,
+    exchange_id: str = "okx",
+    poll_interval_sec: float = 1.0,
+    duration_sec: float = 900.0,
+    decision_sec: int = DECISION_SEC_IN_BAR,
+) -> Iterator[tuple[int, dict[str, BookSnapshot]]]:
+    """Yield (bar_id, books) once per 5m bar when wall clock hits ≥ decision_sec."""
+    connected = connect_spot_exchange(exchange_id)
+    exchange = connected.exchange
+    eid = connected.exchange_id
+    t0 = time.time()
+    last_decided: int | None = None
+    n_polls = 0
+    print(
+        f"Candle clock live: bar={BAR_SEC}s decision_sec>={decision_sec} "
+        f"(4m59s), poll={poll_interval_sec}s, duration={duration_sec:.0f}s",
+        flush=True,
+    )
+    while True:
+        if duration_sec > 0 and (time.time() - t0) >= duration_sec:
+            break
+        now_ms = int(time.time() * 1000)
+        bid = _bar_id(now_ms)
+        sec = _sec_in_bar(now_ms)
+        n_polls += 1
+        if sec >= decision_sec and bid != last_decided:
+            books = poll_books_once(exchange, symbols, exchange_id=eid)
+            if books:
+                last_decided = bid
+                print(
+                    f"  decision bar_id={bid} sec_in_bar={sec} "
+                    f"n_books={len(books)} (polls={n_polls})",
+                    flush=True,
+                )
+                yield bid, books
+            else:
+                print(
+                    f"  skip empty books at bar_id={bid} sec={sec}",
+                    flush=True,
+                )
+        # Sleep until near next decision or next poll.
+        now_ms = int(time.time() * 1000)
+        sec = _sec_in_bar(now_ms)
+        if sec < decision_sec:
+            wait = min(poll_interval_sec, max(0.2, decision_sec - sec - 0.05))
+        else:
+            # Past decision window: nap until next bar starts.
+            wait = min(poll_interval_sec, max(0.2, BAR_SEC - sec))
+        if duration_sec > 0:
+            rem = duration_sec - (time.time() - t0)
+            if rem <= 0:
+                break
+            wait = min(wait, rem)
+        time.sleep(wait)
+
+
+def run_dual_slot_candle_paper(
     cfg,
-    events,
+    decisions: Iterator[tuple[int, dict[str, BookSnapshot]]],
     *,
     seed: int = 42,
     initial_equity: float = START_EQUITY,
-    poll_sec: float = 2.0,
-    duration_sec: float = 0.0,
+    poll_sec: float = 1.0,
     mid_history_len: int = 240,
 ) -> tuple[EvidenceResult, list[dict[str, Any]]]:
     sc = cfg.sim
@@ -102,7 +191,8 @@ def run_dual_slot_live_paper(
     hist: dict[str, list[float]] = {s: [] for s in cfg.symbols}
     latest: dict[str, BookSnapshot] = {}
 
-    n_events = n_entries = n_rt = n_buys = n_sells = n_busy = 0
+    n_polls = 0
+    n_bars = n_entries = n_rt = n_buys = n_sells = n_busy = 0
     fees_total = 0.0
     peak_slots = 0
     open_hist: list[int] = []
@@ -116,7 +206,7 @@ def run_dual_slot_live_paper(
             eq += slot.inv.base * mids[sym]
         return float(eq)
 
-    def arm(sym: str, mid: float, budget: float, ts_ms: int) -> SlotState:
+    def arm(sym: str, mid: float, budget: float, bar_id: int) -> SlotState:
         max_inv = max(budget / mid, 1e-12)
         inv = InventoryState(
             base=0.0,
@@ -127,24 +217,24 @@ def run_dual_slot_live_paper(
         )
         eng = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
         return SlotState(
-            symbol=sym, inv=inv, eng=eng, notional_budget=budget, entry_ts_ms=ts_ms
+            symbol=sym, inv=inv, eng=eng, notional_budget=budget, entry_bar_id=bar_id
         )
 
-    for snap in events:
-        if not snap.valid:
-            continue
-        n_events += 1
-        latest[snap.symbol] = snap
-        h = hist.setdefault(snap.symbol, [])
-        h.append(snap.mid)
-        if len(h) > mid_history_len:
-            del h[: len(h) - mid_history_len]
+    for bar_id, books in decisions:
+        n_bars += 1
+        n_polls += 1
+        for sym, snap in books.items():
+            latest[sym] = snap
+            h = hist.setdefault(sym, [])
+            h.append(snap.mid)
+            if len(h) > mid_history_len:
+                del h[: len(h) - mid_history_len]
 
         mids = {s: float(latest[s].mid) for s in latest}
         closed: list[str] = []
         opened: list[str] = []
 
-        # Manage open slots on their own book updates (and lightly on others).
+        # Manage open slots once per candle decision.
         for sym in list(slots.keys()):
             if sym not in latest:
                 continue
@@ -177,7 +267,7 @@ def run_dual_slot_live_paper(
                         ):
                             cash -= cost
                             slot.inv.apply_buy(
-                                price=px, size=q.bid_size, fee=0.0, bar=n_events
+                                price=px, size=q.bid_size, fee=0.0, bar=n_bars
                             )
                             fees_total += fee
                             n_buys += 1
@@ -199,7 +289,7 @@ def run_dual_slot_live_paper(
                         fee = fee_on_notional(px * sell_sz, cfg)
                         cash += px * sell_sz - fee
                         slot.inv.apply_sell(
-                            price=px, size=sell_sz, fee=0.0, bar=n_events
+                            price=px, size=sell_sz, fee=0.0, bar=n_bars
                         )
                         fees_total += fee
                         n_sells += 1
@@ -207,8 +297,8 @@ def run_dual_slot_live_paper(
                 if abs(slot.inv.base) > 0:
                     cash += slot.inv.base * mid
                     slot.inv.base = 0.0
-                if slot.entry_ts_ms is not None:
-                    holds.append(max(0.0, (book.ts_ms - slot.entry_ts_ms) / 1000.0))
+                if slot.entry_bar_id is not None:
+                    holds.append(float(max(0, bar_id - slot.entry_bar_id)))
                 n_rt += 1
                 closed.append(sym)
                 del slots[sym]
@@ -226,10 +316,11 @@ def run_dual_slot_live_paper(
         free = max_slots - len(slots)
 
         if free <= 0:
-            # Count a busy skip if another symbol looks quotable.
-            if snap.symbol not in slots and len(hist.get(snap.symbol, [])) >= 5:
+            for s, book in latest.items():
+                if s in slots or len(hist.get(s, [])) < 5:
+                    continue
                 bud = plan[-1] if plan else SLOT_MIN
-                max_inv = max(bud / snap.mid, 1e-12)
+                max_inv = max(bud / book.mid, 1e-12)
                 probe = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
                 flat = InventoryState(
                     base=0.0,
@@ -239,12 +330,13 @@ def run_dual_slot_live_paper(
                     halt_frac=cfg.inventory_halt_frac,
                 )
                 q = probe.quote(
-                    snap.mid,
+                    book.mid,
                     flat,
-                    mid_history=np.asarray(hist[snap.symbol], dtype=float),
+                    mid_history=np.asarray(hist[s], dtype=float),
                 )
                 if q.quoting and q.net_edge_bps_if_matched > 0:
                     n_busy += 1
+                    break
         elif plan:
             used = sorted((sl.notional_budget for sl in slots.values()), reverse=True)
             remaining = list(plan)
@@ -324,10 +416,10 @@ def run_dual_slot_live_paper(
                     if cost > cash + 1e-9:
                         remaining.insert(0, budget)
                         continue
-                    slot = arm(sym, book.mid, budget, book.ts_ms)
+                    slot = arm(sym, book.mid, budget, bar_id)
                     cash -= cost
                     slot.inv.apply_buy(
-                        price=px, size=q1.bid_size, fee=0.0, bar=n_events
+                        price=px, size=q1.bid_size, fee=0.0, bar=n_bars
                     )
                     fees_total += fee
                     slots[sym] = slot
@@ -337,32 +429,27 @@ def run_dual_slot_live_paper(
                     free -= 1
 
         open_hist.append(len(slots))
-        if n_events % 50 == 0 or opened or closed:
-            rows.append(
-                {
-                    "event": n_events,
-                    "ts_ms": snap.ts_ms,
-                    "equity": mark(mids),
-                    "cash": cash,
-                    "n_open": len(slots),
-                    "open_symbols": ",".join(sorted(slots.keys())),
-                    "opened": ",".join(opened),
-                    "closed": ",".join(closed),
-                    "fees_cum": fees_total,
-                }
-            )
-
-        if duration_sec > 0 and (time.time() - t0) >= duration_sec:
-            break
+        rows.append(
+            {
+                "decision_bar": n_bars,
+                "bar_id": bar_id,
+                "ts_ms": next(iter(books.values())).ts_ms,
+                "equity": mark(mids),
+                "cash": cash,
+                "n_open": len(slots),
+                "open_symbols": ",".join(sorted(slots.keys())),
+                "opened": ",".join(opened),
+                "closed": ",".join(closed),
+                "fees_cum": fees_total,
+            }
+        )
 
     # Flatten residual inventory at last mids.
     for sym, slot in list(slots.items()):
         mid = latest[sym].mid if sym in latest else 0.0
         cash += slot.inv.base * mid
-        if slot.entry_ts_ms is not None and sym in latest:
-            holds.append(
-                max(0.0, (latest[sym].ts_ms - slot.entry_ts_ms) / 1000.0)
-            )
+        if slot.entry_bar_id is not None:
+            holds.append(0.0)
         n_rt += 1
         del slots[sym]
 
@@ -370,7 +457,8 @@ def run_dual_slot_live_paper(
     ret = 100.0 * (final_eq - initial_equity) / initial_equity if initial_equity else 0.0
     arr = np.asarray(holds, dtype=float)
     result = EvidenceResult(
-        n_events=n_events,
+        n_polls=n_polls,
+        n_decision_bars=n_bars,
         n_entries=n_entries,
         n_round_trips=n_rt,
         n_buys=n_buys,
@@ -382,39 +470,42 @@ def run_dual_slot_live_paper(
         total_return_pct=float(ret),
         peak_slots=peak_slots,
         mean_open_slots=float(np.mean(open_hist)) if open_hist else 0.0,
-        hold_seconds_mean=float(arr.mean()) if len(arr) else None,
-        hold_seconds_median=float(np.median(arr)) if len(arr) else None,
+        hold_bars_mean=float(arr.mean()) if len(arr) else None,
+        hold_bars_median=float(np.median(arr)) if len(arr) else None,
         n_holds=int(len(arr)),
         duration_sec=float(time.time() - t0),
         poll_sec=float(poll_sec),
         n_symbols=len(cfg.symbols),
         fill_prob=float(sc.fill_prob),
         adverse_frac=float(sc.adverse_frac),
+        decision_sec_in_bar=DECISION_SEC_IN_BAR,
         interpretation_allowed=False,
-        evidence_tier="live_bbo_paper_fills",
+        evidence_tier="live_candle_clock_paper_fills",
         notes=(
-            "Tier-2 evidence: live OKX BBO, paper maker fills with adverse selection. "
-            "NOT live orders / NOT a live-edge claim. "
-            f"$200 start, fixed $100 windows (2 at start). Fee {cfg.commission_pct}%/side."
+            "Tier-2 candle-clock: live OKX BBO sampled at second 299 of each 5m bar "
+            "(4m59s). One decision per candle. Paper fills only — NOT live orders / "
+            f"NOT a live-edge claim. $200 start, fixed $100 windows. "
+            f"Fee {cfg.commission_pct}%/side."
         ),
-        holds_sec=holds,
+        holds_bars=holds,
     )
     return result, rows
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="$200 dual-slot live-BBO paper evidence bot")
+    p = argparse.ArgumentParser(
+        description="$200 dual-slot live candle-clock paper (decision @ 4:59)"
+    )
     p.add_argument("--config", default="config/market_making_5m.yaml")
     p.add_argument("--equity", type=float, default=START_EQUITY)
-    p.add_argument("--duration-sec", type=float, default=900.0)
-    p.add_argument("--poll-sec", type=float, default=2.0)
+    p.add_argument("--duration-sec", type=float, default=1200.0)
+    p.add_argument("--poll-sec", type=float, default=1.0)
     p.add_argument("--max-symbols", type=int, default=12)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out-basename", default="live_edge_tier2_200_dualslot")
+    p.add_argument("--out-basename", default="live_candle_5m_200_dualslot")
     args = p.parse_args(argv)
 
     cfg = load_mm_config(args.config)
-    # Faster REST poll: focus on liquid names for evidence session.
     symbols = list(cfg.symbols)[: max(2, int(args.max_symbols))]
     cfg = cfg.model_copy(
         update={
@@ -424,28 +515,27 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(
-        f"Tier-2 live-BBO paper: ${args.equity:.0f} start, "
+        f"Tier-2 live candle-clock paper: ${args.equity:.0f} start, "
         f"2×$100 windows, {len(symbols)} symbols, "
-        f"{args.duration_sec:.0f}s @ poll {args.poll_sec}s "
+        f"{args.duration_sec:.0f}s, decision @ {DECISION_SEC_IN_BAR}s/300 "
         f"(fill_prob={cfg.sim.fill_prob}, adverse={cfg.sim.adverse_frac})",
         flush=True,
     )
     print("interpretation_allowed=false — not a live-edge claim", flush=True)
 
-    max_cycles = max(1, int(float(args.duration_sec) / max(float(args.poll_sec), 0.2)))
-    events = poll_book_events(
+    decisions = iter_candle_decision_books(
         symbols,
         exchange_id=cfg.exchange_id,
         poll_interval_sec=float(args.poll_sec),
-        max_cycles=max_cycles,
+        duration_sec=float(args.duration_sec),
+        decision_sec=DECISION_SEC_IN_BAR,
     )
-    result, rows = run_dual_slot_live_paper(
+    result, rows = run_dual_slot_candle_paper(
         cfg,
-        events,
+        decisions,
         seed=int(args.seed),
         initial_equity=float(args.equity),
         poll_sec=float(args.poll_sec),
-        duration_sec=float(args.duration_sec),
     )
 
     out = {
@@ -463,6 +553,12 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "config": args.config,
             "symbols": symbols,
+            "decision_clock": {
+                "timeframe": "5m",
+                "bar_seconds": BAR_SEC,
+                "decision_second_in_bar": DECISION_SEC_IN_BAR,
+                "decision_label": "4m59s",
+            },
         },
         "result": asdict(result),
     }
@@ -490,8 +586,9 @@ def main(argv: list[str] | None = None) -> int:
         f"  → {result.start_equity:.0f} → {result.final_equity:.2f} "
         f"({result.total_return_pct:+.2f}%) entries={result.n_entries} "
         f"rt={result.n_round_trips} busy={result.n_busy} "
-        f"hold_med={result.hold_seconds_median} "
-        f"fees={result.fees_paid:.4f} events={result.n_events}",
+        f"decision_bars={result.n_decision_bars} "
+        f"hold_bars_med={result.hold_bars_median} "
+        f"fees={result.fees_paid:.4f}",
         flush=True,
     )
     print(f"Wrote config/{args.out_basename}_results.json", flush=True)
