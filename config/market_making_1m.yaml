@@ -47,7 +47,6 @@ market_making:
   max_inventory: 1.0
   size_frac_of_max: 0.1
   inventory_halt_frac: 0.8
-  # Wall-clock matched to locked 1h (×60) / 5m (×5): placeholders until calib locks
   vol_lookback: 11520
   vol_spread_mult: 0.25
   gamma: 0.18
@@ -55,7 +54,7 @@ market_making:
   tau_bars: 2880.0
   ewma_halflife: 5760.0
   size_eta: 2.5
-  adverse_vol_mult: 0.45
+  adverse_vol_mult: 0.35
   liq_bps: 6.0
   use_as_quotes: true
   portfolio_initial_equity: 1000.0

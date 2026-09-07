@@ -1,0 +1,252 @@
+{
+  "selected_params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 2880.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.35,
+    "vol_lookback": 11520.0,
+    "ewma_halflife": 5760.0,
+    "liq_bps": 6.0,
+    "vol_spread_mult": 0.25,
+    "inventory_halt_frac": 0.8
+  },
+  "is_window": {
+    "start": "2026-08-25",
+    "end_exclusive": "2026-09-01"
+  },
+  "oos_window": {
+    "start": "2026-09-01",
+    "end_exclusive": "2026-09-07"
+  },
+  "warmup_start": "2026-08-17",
+  "timeframe": "1m",
+  "is_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 36.92185987605667,
+    "min_ret": 4.126346295919413,
+    "mean_half": 133.7763964940647
+  },
+  "oos_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 16.976336852648043,
+    "min_ret": 1.9577665185946609,
+    "mean_half": 101.66746254829903
+  },
+  "top_candidates": [
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 2880.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 36.92185987605667,
+        "min_ret": 4.126346295919413,
+        "mean_half": 133.7763964940647
+      },
+      "score": [
+        100.0,
+        36.92185987605667,
+        4.126346295919413
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 2880.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 36.92172407504673,
+        "min_ret": 4.126051579402225,
+        "mean_half": 133.7763964940647
+      },
+      "score": [
+        100.0,
+        36.92172407504673,
+        4.126051579402225
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 1920.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 31.179487001214934,
+        "min_ret": 2.3875986646250347,
+        "mean_half": 109.45141237869251
+      },
+      "score": [
+        100.0,
+        31.179487001214934,
+        2.3875986646250347
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 1920.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 31.17927763364504,
+        "min_ret": 2.387350737833888,
+        "mean_half": 109.45141237869251
+      },
+      "score": [
+        100.0,
+        31.17927763364504,
+        2.387350737833888
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.12,
+        "kappa": 0.8,
+        "tau_bars": 2880.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 25.81901476068756,
+        "min_ret": 0.778929148196045,
+        "mean_half": 89.21107260764066
+      },
+      "score": [
+        100.0,
+        25.81901476068756,
+        0.778929148196045
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.12,
+        "kappa": 0.8,
+        "tau_bars": 2880.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 25.818576567035574,
+        "min_ret": 0.7787157099693615,
+        "mean_half": 89.21107260764066
+      },
+      "score": [
+        100.0,
+        25.818576567035574,
+        0.7787157099693615
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 960.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 22.502390294330443,
+        "min_ret": 0.05017505405452279,
+        "mean_half": 77.75125407839846
+      },
+      "score": [
+        100.0,
+        22.502390294330443,
+        0.05017505405452279
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 960.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 11520.0,
+        "ewma_halflife": 5760.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 30.0,
+        "pct_pos": 100.0,
+        "mean_ret": 22.50199962453197,
+        "min_ret": 0.059559086437775875,
+        "mean_half": 77.75206267590855
+      },
+      "score": [
+        100.0,
+        22.50199962453197,
+        0.059559086437775875
+      ]
+    }
+  ],
+  "interpretation_allowed": false,
+  "method": "1m candle AS grid (wall-matched to 1h\u00d760); IS=2026-08-25\u21922026-09-01; OOS=2026-09-01\u21922026-09-07; select max pct_pos then mean_ret then min_ret",
+  "hours_per_bar": 0.016666666666666666,
+  "bars_per_year": 525960.0
+}
