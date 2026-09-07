@@ -1,0 +1,20 @@
+{
+  "label": "large_book_25k_30coin_v1",
+  "params": {
+    "gamma": 0.25,
+    "kappa": 0.6,
+    "tau_bars": 72.0,
+    "size_eta": 2.0,
+    "size_frac_of_max": 0.05,
+    "fill_prob": 0.2,
+    "adverse_frac": 0.6
+  },
+  "wallet": 25000.0,
+  "max_slots": 30,
+  "slot_notional": 833.3333333333334,
+  "universe": "top30_majors_retail_list",
+  "n_symbols": 30,
+  "busy_slot_skip": false,
+  "interpretation_allowed": false,
+  "notes": "Large-book AS params on 30 majors; max_slots=n_symbols so every positive signal can open if cash allows."
+}
