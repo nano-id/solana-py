@@ -462,6 +462,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--remnant-min", type=float, default=REMNANT_MIN)
     p.add_argument("--out-basename", type=str, default="")
     p.add_argument("--config", type=str, default="config/market_making_5m.yaml")
+    p.add_argument("--timeframe", type=str, default="5m")
     p.add_argument("--start", type=str, default="2026-01-01")
     p.add_argument("--end-exclusive", type=str, default="2026-09-07")
     args = p.parse_args(argv)
@@ -514,7 +515,7 @@ def main(argv: list[str] | None = None) -> int:
 
     stamps, panel = load_aligned_panel(
         symbols,
-        timeframe="5m",
+        timeframe=str(args.timeframe),
         start=args.start,
         end_exclusive=args.end_exclusive,
         root=cfg.storage_root,
@@ -579,13 +580,31 @@ def main(argv: list[str] | None = None) -> int:
                 else f"none (compound from ${start_equity:.0f})"
             ),
             "window": f"{args.start}→{args.end_exclusive}",
-            "timeframe": "5m",
+            "timeframe": str(args.timeframe),
             "decision_clock": {
-                "timeframe": "5m",
-                "bar_seconds": 300,
-                "decision_second_in_bar": 299,
-                "decision_label": "4m59s",
-                "hist_proxy": "5m candle close (== price at end of bar / 4:59)",
+                "timeframe": str(args.timeframe),
+                "bar_seconds": (
+                    60
+                    if str(args.timeframe) == "1m"
+                    else 300
+                    if str(args.timeframe) == "5m"
+                    else None
+                ),
+                "decision_second_in_bar": (
+                    59
+                    if str(args.timeframe) == "1m"
+                    else 299
+                    if str(args.timeframe) == "5m"
+                    else None
+                ),
+                "decision_label": (
+                    "0m59s"
+                    if str(args.timeframe) == "1m"
+                    else "4m59s"
+                    if str(args.timeframe) == "5m"
+                    else "bar_close"
+                ),
+                "hist_proxy": f"{args.timeframe} candle close (== end-of-bar decision price)",
             },
             "n_symbols_used": len(symbols),
             "params": args.config,

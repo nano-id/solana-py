@@ -65,6 +65,7 @@ def run_mid_path_sim(
     sc = cfg.sim
     seed = sc.seed if seed is None else seed
     eng = QuoteEngine(cfg)
+    look = max(int(cfg.vol_lookback), 8)
     mid0 = float(mids[0])
     inv = InventoryState(
         base=0.0,
@@ -80,7 +81,8 @@ def run_mid_path_sim(
 
     for i, mid in enumerate(mids):
         mid_f = float(mid)
-        q = eng.quote(mid_f, inv, mid_history=mids[: i + 1])
+        lo = 0 if i + 1 <= look else i + 1 - look
+        q = eng.quote(mid_f, inv, mid_history=mids[lo : i + 1])
         if q.quoting:
             halfs.append(q.half_spread_bps)
 
