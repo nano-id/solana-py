@@ -42,7 +42,14 @@ SLOT_MIN = 100.0
 SLOT_MAX = 100.0
 REMNANT_MIN = 100.0
 BAR_SEC = 300
-DECISION_SEC_IN_BAR = 299  # 4m59s
+DECISION_SEC_IN_BAR = 299  # 4m59s within 5m bar; 1m uses 59
+
+
+def configure_clock(bar_sec: int, decision_sec: int) -> None:
+    """Set candle decision clock (e.g. 300/299 for 5m, 60/59 for 1m)."""
+    global BAR_SEC, DECISION_SEC_IN_BAR
+    BAR_SEC = int(bar_sec)
+    DECISION_SEC_IN_BAR = int(decision_sec)
 
 
 @dataclass
@@ -133,7 +140,7 @@ def iter_candle_decision_books(
     n_polls = 0
     print(
         f"Candle clock live: bar={BAR_SEC}s decision_sec>={decision_sec} "
-        f"(4m59s), poll={poll_interval_sec}s, duration={duration_sec:.0f}s",
+        f"poll={poll_interval_sec}s, duration={duration_sec:.0f}s",
         flush=True,
     )
     while True:
@@ -182,6 +189,7 @@ def run_dual_slot_candle_paper(
     initial_equity: float = START_EQUITY,
     poll_sec: float = 1.0,
     mid_history_len: int = 240,
+    seed_hist: dict[str, list[float]] | None = None,
 ) -> tuple[EvidenceResult, list[dict[str, Any]]]:
     sc = cfg.sim
     rng = np.random.default_rng(seed + 202)
@@ -189,6 +197,9 @@ def run_dual_slot_candle_paper(
     cash = float(initial_equity)
     slots: dict[str, SlotState] = {}
     hist: dict[str, list[float]] = {s: [] for s in cfg.symbols}
+    if seed_hist:
+        for s, vals in seed_hist.items():
+            hist[s] = list(vals)[-mid_history_len:]
     latest: dict[str, BookSnapshot] = {}
 
     n_polls = 0
@@ -492,9 +503,41 @@ def run_dual_slot_candle_paper(
     return result, rows
 
 
+def _seed_hist_from_parquet(
+    symbols: list[str],
+    *,
+    timeframe: str,
+    n_bars: int,
+    root: str | Path,
+    exchange_id: str,
+) -> dict[str, list[float]]:
+    """Warm mid history from recent candle closes so live can trade immediately."""
+    from market_making.simulator import load_okx_mids
+    import pandas as pd
+
+    end = pd.Timestamp.now(tz="UTC").ceil("min")
+    start = end - pd.Timedelta(minutes=max(n_bars + 5, 30))
+    out: dict[str, list[float]] = {}
+    for sym in symbols:
+        try:
+            mids, _ = load_okx_mids(
+                sym,
+                timeframe=timeframe,
+                start=start.isoformat(),
+                end_exclusive=end.isoformat(),
+                root=root,
+                exchange_id=exchange_id,
+            )
+            out[sym] = [float(x) for x in mids[-n_bars:]]
+        except Exception as exc:  # noqa: BLE001
+            print(f"  warmup skip {sym}: {exc}", flush=True)
+            out[sym] = []
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        description="$200 dual-slot live candle-clock paper (decision @ 4:59)"
+        description="$200 dual-slot live candle-clock paper"
     )
     p.add_argument("--config", default="config/market_making_5m.yaml")
     p.add_argument("--equity", type=float, default=START_EQUITY)
@@ -502,9 +545,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--poll-sec", type=float, default=1.0)
     p.add_argument("--max-symbols", type=int, default=12)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--bar-sec", type=int, default=300)
+    p.add_argument("--decision-sec", type=int, default=299)
+    p.add_argument("--warmup-bars", type=int, default=0)
+    p.add_argument("--warmup-timeframe", default="")
     p.add_argument("--out-basename", default="live_candle_5m_200_dualslot")
     args = p.parse_args(argv)
 
+    configure_clock(int(args.bar_sec), int(args.decision_sec))
     cfg = load_mm_config(args.config)
     symbols = list(cfg.symbols)[: max(2, int(args.max_symbols))]
     cfg = cfg.model_copy(
@@ -517,11 +565,27 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Tier-2 live candle-clock paper: ${args.equity:.0f} start, "
         f"2×$100 windows, {len(symbols)} symbols, "
-        f"{args.duration_sec:.0f}s, decision @ {DECISION_SEC_IN_BAR}s/300 "
+        f"{args.duration_sec:.0f}s, decision @ {DECISION_SEC_IN_BAR}s/{BAR_SEC} "
         f"(fill_prob={cfg.sim.fill_prob}, adverse={cfg.sim.adverse_frac})",
         flush=True,
     )
     print("interpretation_allowed=false — not a live-edge claim", flush=True)
+
+    seed_hist: dict[str, list[float]] | None = None
+    if int(args.warmup_bars) > 0:
+        tf = args.warmup_timeframe.strip() or (
+            "1m" if BAR_SEC <= 60 else "5m" if BAR_SEC <= 300 else "1h"
+        )
+        print(f"Warming mid history from {tf} parquet ({args.warmup_bars} bars)...", flush=True)
+        seed_hist = _seed_hist_from_parquet(
+            symbols,
+            timeframe=tf,
+            n_bars=int(args.warmup_bars),
+            root=cfg.storage_root,
+            exchange_id=cfg.exchange_id,
+        )
+        n_ok = sum(1 for v in seed_hist.values() if len(v) >= 5)
+        print(f"  warmup ready symbols={n_ok}/{len(symbols)}", flush=True)
 
     decisions = iter_candle_decision_books(
         symbols,
@@ -536,8 +600,14 @@ def main(argv: list[str] | None = None) -> int:
         seed=int(args.seed),
         initial_equity=float(args.equity),
         poll_sec=float(args.poll_sec),
+        seed_hist=seed_hist,
     )
 
+    label = (
+        f"{DECISION_SEC_IN_BAR // 60}m{DECISION_SEC_IN_BAR % 60:02d}s"
+        if BAR_SEC >= 60
+        else f"{DECISION_SEC_IN_BAR}s"
+    )
     out = {
         "interpretation_allowed": False,
         "evidence_tier": result.evidence_tier,
@@ -554,10 +624,9 @@ def main(argv: list[str] | None = None) -> int:
             "config": args.config,
             "symbols": symbols,
             "decision_clock": {
-                "timeframe": "5m",
                 "bar_seconds": BAR_SEC,
                 "decision_second_in_bar": DECISION_SEC_IN_BAR,
-                "decision_label": "4m59s",
+                "decision_label": label,
             },
         },
         "result": asdict(result),

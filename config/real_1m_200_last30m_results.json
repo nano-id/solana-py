@@ -1,0 +1,89 @@
+{
+  "interpretation_allowed": false,
+  "design": {
+    "start_equity": 200.0,
+    "monthly_deposit": 0.0,
+    "slot_min": 100.0,
+    "slot_max": 100.0,
+    "remnant_min": 100.0,
+    "slot_max_at_equity": 1250.0,
+    "slot_rule": "fixed $100 windows; remainder\u2265$100 opens extra",
+    "deposit_rule": "none (compound from $200)",
+    "window": "2026-09-08T09:44:00\u21922026-09-08T10:14:00",
+    "timeframe": "1m",
+    "decision_clock": {
+      "timeframe": "1m",
+      "bar_seconds": 60,
+      "decision_second_in_bar": 59,
+      "decision_label": "0m59s",
+      "hist_proxy": "1m candle close (== end-of-bar decision price)"
+    },
+    "n_symbols_used": 12,
+    "params": "config/market_making_1m_live12.yaml"
+  },
+  "result": {
+    "n_bars": 30,
+    "n_entries": 6,
+    "n_round_trips": 6,
+    "n_buys": 12,
+    "n_sells": 6,
+    "n_skipped_busy": 1,
+    "n_multi_signal_choices": 2,
+    "peak_slots": 2,
+    "start_equity": 200.0,
+    "final_equity": 200.1849956993243,
+    "total_deposited": 200.0,
+    "net_profit": 0.18499569932430404,
+    "return_on_deposited_pct": 0.09249784966215202,
+    "total_return_vs_start_pct": 0.09249784966215202,
+    "fees_paid": 0.11278771718841234,
+    "realized_pnl": 0.19302858020724356,
+    "n_active_symbols": 5,
+    "active_symbol_bars": {
+      "BTC/USDT": 0,
+      "ETH/USDT": 3,
+      "BNB/USDT": 0,
+      "SOL/USDT": 23,
+      "XRP/USDT": 0,
+      "DOGE/USDT": 3,
+      "ADA/USDT": 0,
+      "TRX/USDT": 2,
+      "AVAX/USDT": 0,
+      "LINK/USDT": 0,
+      "DOT/USDT": 0,
+      "LTC/USDT": 26
+    },
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT",
+      "AVAX/USDT",
+      "LINK/USDT",
+      "DOT/USDT",
+      "LTC/USDT"
+    ],
+    "max_open_slots_mean": 1.9666666666666666,
+    "n_deposits": 0,
+    "interpretation_allowed": false,
+    "notes": "Start=$200 +$0/mo; slot $100\u2192$100, remnant_min=$100. Fee 0.07%/side. Paper only.",
+    "open_slots_end": []
+  },
+  "monthly": [
+    {
+      "ym": "2026-09",
+      "start": 199.99682341108797,
+      "end": 200.1849956993243,
+      "deposit": 0.0,
+      "ret_pct": 0.09408763850691226,
+      "mean_open": 1.8888888888888888,
+      "mean_allowed": 2.0,
+      "mean_slot_size": 100.0,
+      "total_deposited_end": 200.0
+    }
+  ]
+}
