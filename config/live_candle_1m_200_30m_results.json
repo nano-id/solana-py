@@ -1,0 +1,66 @@
+{
+  "interpretation_allowed": false,
+  "evidence_tier": "live_candle_clock_paper_fills",
+  "design": {
+    "start_equity": 200.0,
+    "slot": 100.0,
+    "windows_at_start": [
+      100.0,
+      100.0
+    ],
+    "config": "config/market_making_1m_live12.yaml",
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT",
+      "AVAX/USDT",
+      "LINK/USDT",
+      "DOT/USDT",
+      "LTC/USDT"
+    ],
+    "decision_clock": {
+      "bar_seconds": 60,
+      "decision_second_in_bar": 59,
+      "decision_label": "0m59s"
+    }
+  },
+  "result": {
+    "n_polls": 27,
+    "n_decision_bars": 27,
+    "n_entries": 5,
+    "n_round_trips": 5,
+    "n_buys": 8,
+    "n_sells": 6,
+    "n_busy": 20,
+    "fees_paid": 0.09322856353072931,
+    "start_equity": 200.0,
+    "final_equity": 200.2522807213941,
+    "total_return_pct": 0.12614036069705037,
+    "peak_slots": 2,
+    "mean_open_slots": 1.8888888888888888,
+    "hold_bars_mean": 4.8,
+    "hold_bars_median": 1.0,
+    "n_holds": 5,
+    "duration_sec": 1801.2973246574402,
+    "poll_sec": 1.0,
+    "n_symbols": 12,
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55,
+    "decision_sec_in_bar": 59,
+    "interpretation_allowed": false,
+    "evidence_tier": "live_candle_clock_paper_fills",
+    "notes": "Tier-2 candle-clock: live OKX BBO sampled at second 299 of each 5m bar (4m59s). One decision per candle. Paper fills only \u2014 NOT live orders / NOT a live-edge claim. $200 start, fixed $100 windows. Fee 0.07%/side.",
+    "holds_bars": [
+      3.0,
+      20.0,
+      1.0,
+      0.0,
+      0.0
+    ]
+  }
+}
