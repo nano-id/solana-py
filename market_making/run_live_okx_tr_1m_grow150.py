@@ -225,6 +225,20 @@ def run_bot(
         flush=True,
     )
 
+    # Clear leftover open orders from prior buggy runs (one-shot cleanup).
+    print("startup: cancel open orders on managed symbols...", flush=True)
+    for sym in symbols:
+        try:
+            for od in ex.fetch_open_orders(sym):
+                oid = od.get("id")
+                if oid:
+                    try:
+                        ex.cancel_order(str(oid), sym)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     state = BotState()
     hist: dict[str, list[float]] = {s: [] for s in symbols}
     t0 = time.time()
@@ -257,53 +271,109 @@ def run_bot(
                 )
                 max_slots = max(len(plan), 1)
 
-                # Cancel resting orders before re-quoting.
-                for sl in list(state.slots.values()):
-                    state.n_cancels += cancel_slot_orders(ex, sl)
-
-                # Sync bases from exchange; drop flat slots.
-                for sym in list(state.slots.keys()):
+                # Recover slots from exchange inventory (restart / desync safe).
+                for sym in symbols:
                     mid = mids.get(sym, 0.0)
-                    base = base_free(bal, sym)
-                    state.slots[sym].base = base
-                    if mid > 0 and base * mid < FLAT_BASE_USD:
-                        state.slots[sym].base = 0.0
-                        # keep slot record until we decide to free for re-entry
-                        if not state.slots[sym].buy_order_id and not state.slots[sym].sell_order_id:
-                            # flat — free the symbol slot
-                            del state.slots[sym]
-
-                # Exit quotes for open inventory (maker sell).
-                for sym, sl in list(state.slots.items()):
-                    mid = mids.get(sym)
-                    book = books.get(sym)
-                    if mid is None or book is None or sl.base * mid < FLAT_BASE_USD:
+                    if not mid:
                         continue
-                    max_inv = max(sl.budget / mid, 1e-12)
-                    eng = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
-                    inv = InventoryState(
-                        base=sl.base,
-                        quote=0.0,
-                        target=0.0,
-                        max_abs=max_inv,
-                        halt_frac=cfg.inventory_halt_frac,
-                        avg_cost=sl.avg_cost,
-                    )
-                    q = eng.quote(mid, inv, mid_history=np.asarray(hist.get(sym, [mid]), float))
-                    if q.quoting and q.ask_size > 0:
-                        px = min(q.ask, book.ask) if book.ask > 0 else q.ask
-                        # stay maker: at or above ask
-                        px = max(px, book.ask)
-                        amt = min(sl.base, q.ask_size)
-                        oid = place_postonly(ex, sym, "sell", amt, px)
-                        if oid:
-                            sl.sell_order_id = oid
-                            state.n_sell_orders += 1
+                    base = base_free(bal, sym)
+                    if base * mid >= FLAT_BASE_USD and sym not in state.slots:
+                        state.slots[sym] = LiveSlot(
+                            symbol=sym,
+                            budget=min(base * mid, plan[-1] if plan else base * mid),
+                            base=base,
+                        )
+                        print(f"  recover slot {sym} base≈{base:.6g}", flush=True)
 
-                # Entries: fill free slots from plan with best flat symbols.
+                # Refresh each open slot: pending buy stays; inventory → maker sell only.
+                for sym, sl in list(state.slots.items()):
+                    mid = mids.get(sym, 0.0)
+                    book = books.get(sym)
+                    base = base_free(bal, sym)
+                    sl.base = base
+                    held = mid > 0 and base * mid >= FLAT_BASE_USD
+
+                    if held:
+                        # Filled inventory: drop stale buy id, refresh exit quote only.
+                        sl.buy_order_id = None
+                        if sl.sell_order_id:
+                            try:
+                                ex.cancel_order(sl.sell_order_id, sym)
+                                state.n_cancels += 1
+                            except Exception:
+                                pass
+                            sl.sell_order_id = None
+                        if book is None or mid <= 0:
+                            continue
+                        max_inv = max(sl.budget / mid, 1e-12)
+                        eng = QuoteEngine(
+                            cfg.model_copy(update={"max_inventory": max_inv})
+                        )
+                        inv = InventoryState(
+                            base=base,
+                            quote=0.0,
+                            target=0.0,
+                            max_abs=max_inv,
+                            halt_frac=cfg.inventory_halt_frac,
+                            avg_cost=sl.avg_cost,
+                        )
+                        q = eng.quote(
+                            mid,
+                            inv,
+                            mid_history=np.asarray(hist.get(sym, [mid]), float),
+                        )
+                        if q.quoting and q.ask_size > 0:
+                            px = max(q.ask, book.ask)
+                            amt = min(base, q.ask_size)
+                            oid = place_postonly(ex, sym, "sell", amt, px)
+                            if oid:
+                                sl.sell_order_id = oid
+                                state.n_sell_orders += 1
+                                print(
+                                    f"  SELL postOnly {sym} px={px} amt≈{amt:.6g}",
+                                    flush=True,
+                                )
+                        continue
+
+                    # No inventory: keep resting buy if still open; else free slot.
+                    if sl.buy_order_id:
+                        still_open = False
+                        try:
+                            od = ex.fetch_order(sl.buy_order_id, sym)
+                            st = str(od.get("status") or "").lower()
+                            still_open = st in {"open", "new", "partially_filled", "live"}
+                            filled = float(od.get("filled") or 0.0)
+                            if filled > 0 and sl.avg_cost <= 0:
+                                sl.avg_cost = float(od.get("average") or od.get("price") or 0.0)
+                        except Exception:
+                            # Unknown — assume still working to avoid duplicate buys.
+                            still_open = True
+                        if still_open:
+                            print(
+                                f"  HOLD buy {sym} order={sl.buy_order_id}",
+                                flush=True,
+                            )
+                            continue
+                        sl.buy_order_id = None
+
+                    if sl.sell_order_id:
+                        try:
+                            ex.cancel_order(sl.sell_order_id, sym)
+                            state.n_cancels += 1
+                        except Exception:
+                            pass
+                        sl.sell_order_id = None
+
+                    # Truly flat and no working order → release window.
+                    del state.slots[sym]
+                    print(f"  free slot {sym}", flush=True)
+
+                # Entries: only into free windows; never stack on an occupied symbol.
                 free = max_slots - len(state.slots)
                 if free > 0 and plan:
-                    used = sorted((sl.budget for sl in state.slots.values()), reverse=True)
+                    used = sorted(
+                        (sl.budget for sl in state.slots.values()), reverse=True
+                    )
                     rem_plan = list(plan)
                     for b in used:
                         for j, p in enumerate(rem_plan):
@@ -315,17 +385,21 @@ def run_bot(
                                 rem_plan.pop(0)
 
                     cash = usdt_free(bal)
+                    occupied = set(state.slots.keys())
+                    # Also block symbols with dust/held inventory on the account.
+                    for s in symbols:
+                        mid = mids.get(s, 0.0)
+                        if mid and base_free(bal, s) * mid >= FLAT_BASE_USD:
+                            occupied.add(s)
+
                     cands: list[tuple[str, float]] = []
                     for s in symbols:
-                        if s in state.slots:
+                        if s in occupied:
                             continue
                         mid = mids.get(s)
                         if not mid or mid <= 0 or s not in books:
                             continue
                         if len(hist.get(s, [])) < 8:
-                            continue
-                        # already holding dust from prior rounds — skip to avoid clash
-                        if base_free(bal, s) * mid >= FLAT_BASE_USD:
                             continue
                         bud = rem_plan[0] if rem_plan else plan[-1]
                         max_inv = max(bud / mid, 1e-12)
@@ -339,12 +413,16 @@ def run_bot(
                             break
                         if cash < 5:
                             break
+                        if sym in state.slots:
+                            break
                         budget = float(rem_plan.pop(0))
                         budget = min(budget, cash * 0.98)
                         mid = mids[sym]
                         book = books[sym]
                         max_inv = max(budget / mid, 1e-12)
-                        eng = QuoteEngine(cfg.model_copy(update={"max_inventory": max_inv}))
+                        eng = QuoteEngine(
+                            cfg.model_copy(update={"max_inventory": max_inv})
+                        )
                         inv = InventoryState(
                             base=0.0,
                             quote=0.0,
@@ -369,6 +447,7 @@ def run_bot(
                             state.n_buy_orders += 1
                             cash -= notional
                             free -= 1
+                            occupied.add(sym)
                             print(
                                 f"  BUY postOnly {sym} px={px} amt≈{amt:.6g} bud={budget:.2f}",
                                 flush=True,
