@@ -1,0 +1,160 @@
+{
+  "interpretation_allowed": false,
+  "design": {
+    "mode": "ohlc_touch_parallel_no_timeout",
+    "start_equity": 10000000.0,
+    "per_position_usd": 200.0,
+    "buy_timeout_bars": null,
+    "collision": "none",
+    "trade_window": "2026-09-01->2026-09-02",
+    "warmup_start": "2026-08-17",
+    "n_symbols": 12,
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT",
+      "AVAX/USDT",
+      "LINK/USDT",
+      "DOT/USDT",
+      "LTC/USDT"
+    ],
+    "fill_model": "low<=bid / high>=ask; no RNG",
+    "params": "config/live_okx_tr_1m_grow150.yaml"
+  },
+  "result": {
+    "n_bars_trade": 1440,
+    "n_buy_orders": 15,
+    "n_buy_fills": 6,
+    "n_targets": 3,
+    "n_pending_eod": 9,
+    "n_open_eod": 3,
+    "n_sell_fills": 3,
+    "fees_paid": 0.1428093976439676,
+    "realized_pnl": -0.31621817754049564,
+    "start_equity": 10000000.0,
+    "final_equity": 9999999.414861895,
+    "return_pct": -5.851381046362292e-06,
+    "cash_end": 9999940.3523333,
+    "inventory_mark_end": 59.062528595777714,
+    "avg_bars_to_buy_fill": 455.3333333333333,
+    "avg_bars_held_to_target": 262.6666666666667,
+    "interpretation_allowed": false,
+    "notes": "OHLC touch; $200/pos; no buy timeout; independent symbols; fee 0.08%/side.",
+    "targets_by_symbol": {
+      "TRX/USDT": 3
+    },
+    "targets_sample": [
+      {
+        "ts": "2026-09-01 12:17:00+00:00",
+        "symbol": "TRX/USDT",
+        "buy_px": 0.3318017554294334,
+        "sell_px": 0.326153850547233,
+        "bars_held": 567,
+        "realized_pnl": -0.3398462532162227
+      },
+      {
+        "ts": "2026-09-01 12:19:00+00:00",
+        "symbol": "TRX/USDT",
+        "buy_px": 0.3249254938540601,
+        "sell_px": 0.32574413464375135,
+        "bars_held": 1,
+        "realized_pnl": 0.05027270877494709
+      },
+      {
+        "ts": "2026-09-01 19:22:00+00:00",
+        "symbol": "TRX/USDT",
+        "buy_px": 0.32410428941341607,
+        "sell_px": 0.32367035491876217,
+        "bars_held": 220,
+        "realized_pnl": -0.026644633099220077
+      }
+    ],
+    "open_eod_sample": [
+      {
+        "symbol": "BTC/USDT",
+        "buy_px": 77518.33105392291,
+        "sell_px": 77752.27748470762,
+        "base": 0.00025458216066425577,
+        "mid": 77434.7,
+        "bars_held": 653
+      },
+      {
+        "symbol": "ETH/USDT",
+        "buy_px": 2427.668360394969,
+        "sell_px": 2430.425360690503,
+        "base": 0.008111582934851822,
+        "mid": 2418.71,
+        "bars_held": 653
+      },
+      {
+        "symbol": "DOGE/USDT",
+        "buy_px": 0.08181311371659826,
+        "sell_px": 0.0821852487814064,
+        "base": 241.5458937198068,
+        "mid": 0.08168,
+        "bars_held": 653
+      }
+    ],
+    "pending_eod_sample": [
+      {
+        "symbol": "BNB/USDT",
+        "buy_px": 678.7046119213345,
+        "bars_waiting": 1439,
+        "last_close": 683.0
+      },
+      {
+        "symbol": "SOL/USDT",
+        "buy_px": 99.16800185779438,
+        "bars_waiting": 1439,
+        "last_close": 100.0
+      },
+      {
+        "symbol": "XRP/USDT",
+        "buy_px": 1.3399824173387205,
+        "bars_waiting": 1439,
+        "last_close": 1.3517
+      },
+      {
+        "symbol": "ADA/USDT",
+        "buy_px": 0.19478563363766585,
+        "bars_waiting": 1439,
+        "last_close": 0.1967
+      },
+      {
+        "symbol": "AVAX/USDT",
+        "buy_px": 7.169739103380836,
+        "bars_waiting": 1439,
+        "last_close": 7.22
+      },
+      {
+        "symbol": "LINK/USDT",
+        "buy_px": 11.150585373010093,
+        "bars_waiting": 1439,
+        "last_close": 11.234
+      },
+      {
+        "symbol": "DOT/USDT",
+        "buy_px": 0.8648173351694907,
+        "bars_waiting": 1439,
+        "last_close": 0.8722
+      },
+      {
+        "symbol": "LTC/USDT",
+        "buy_px": 49.26160009898343,
+        "bars_waiting": 1439,
+        "last_close": 49.56
+      },
+      {
+        "symbol": "TRX/USDT",
+        "buy_px": 0.3213699061820106,
+        "bars_waiting": 277,
+        "last_close": 0.32229
+      }
+    ]
+  }
+}
