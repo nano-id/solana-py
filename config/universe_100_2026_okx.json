@@ -1,0 +1,810 @@
+{
+  "as_of": "2026-09-06",
+  "exchange": "okx",
+  "n": 100,
+  "selection": "top volume among symbols with full 2026-01-01..2026-09-06 1h coverage + 7d warmup; stables/wrappers excluded",
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "DOGE/USDT",
+    "UNI/USDT",
+    "ARB/USDT",
+    "XRP/USDT",
+    "SUI/USDT",
+    "HYPE/USDT",
+    "BNB/USDT",
+    "OKB/USDT",
+    "PUMP/USDT",
+    "NEAR/USDT",
+    "TRUMP/USDT",
+    "ENA/USDT",
+    "PEPE/USDT",
+    "ASTER/USDT",
+    "WLD/USDT",
+    "LTC/USDT",
+    "LINK/USDT",
+    "FIL/USDT",
+    "AAVE/USDT",
+    "ADA/USDT",
+    "SUSHI/USDT",
+    "BCH/USDT",
+    "OP/USDT",
+    "ONDO/USDT",
+    "RAY/USDT",
+    "TRX/USDT",
+    "STRK/USDT",
+    "XPL/USDT",
+    "BOME/USDT",
+    "AR/USDT",
+    "AVAX/USDT",
+    "PENGU/USDT",
+    "JUP/USDT",
+    "XLM/USDT",
+    "DOT/USDT",
+    "CRV/USDT",
+    "VIRTUAL/USDT",
+    "BONK/USDT",
+    "ORDI/USDT",
+    "MOODENG/USDT",
+    "ICP/USDT",
+    "APT/USDT",
+    "JTO/USDT",
+    "ETC/USDT",
+    "SHIB/USDT",
+    "TIA/USDT",
+    "ETHFI/USDT",
+    "FET/USDT",
+    "PI/USDT",
+    "SOPH/USDT",
+    "LDO/USDT",
+    "POL/USDT",
+    "BICO/USDT",
+    "WIF/USDT",
+    "GRT/USDT",
+    "IOST/USDT",
+    "ZRO/USDT",
+    "HBAR/USDT",
+    "MORPHO/USDT",
+    "TRB/USDT",
+    "WLFI/USDT",
+    "INJ/USDT",
+    "STX/USDT",
+    "CAT/USDT",
+    "PENDLE/USDT",
+    "ZORA/USDT",
+    "NMR/USDT",
+    "SPK/USDT",
+    "PNUT/USDT",
+    "DOOD/USDT",
+    "WOO/USDT",
+    "PEOPLE/USDT",
+    "ENS/USDT",
+    "ALGO/USDT",
+    "DYDX/USDT",
+    "GOAT/USDT",
+    "RENDER/USDT",
+    "ZK/USDT",
+    "CATI/USDT",
+    "CORE/USDT",
+    "MET/USDT",
+    "CFX/USDT",
+    "ATOM/USDT",
+    "EIGEN/USDT",
+    "APE/USDT",
+    "KITE/USDT",
+    "IOTA/USDT",
+    "PYTH/USDT",
+    "BABY/USDT",
+    "CSPR/USDT",
+    "SATS/USDT",
+    "COMP/USDT",
+    "LAT/USDT",
+    "MERL/USDT",
+    "CRO/USDT",
+    "OL/USDT",
+    "GALA/USDT"
+  ],
+  "detail": [
+    {
+      "symbol": "BTC/USDT",
+      "rank": 1,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 208037276.43616787
+    },
+    {
+      "symbol": "ETH/USDT",
+      "rank": 2,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 146675657.54773036
+    },
+    {
+      "symbol": "SOL/USDT",
+      "rank": 3,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 85721583.58135045
+    },
+    {
+      "symbol": "DOGE/USDT",
+      "rank": 4,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 73180587.95967722
+    },
+    {
+      "symbol": "UNI/USDT",
+      "rank": 6,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 50170016.465396225
+    },
+    {
+      "symbol": "ARB/USDT",
+      "rank": 7,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 36447420.098080516
+    },
+    {
+      "symbol": "XRP/USDT",
+      "rank": 8,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 36443014.194175735
+    },
+    {
+      "symbol": "SUI/USDT",
+      "rank": 9,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 33188016.25587726
+    },
+    {
+      "symbol": "HYPE/USDT",
+      "rank": 10,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 32636817.7598356
+    },
+    {
+      "symbol": "BNB/USDT",
+      "rank": 11,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 31682694.2350039
+    },
+    {
+      "symbol": "OKB/USDT",
+      "rank": 12,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 18772725.93171976
+    },
+    {
+      "symbol": "PUMP/USDT",
+      "rank": 14,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 14985541.256414
+    },
+    {
+      "symbol": "NEAR/USDT",
+      "rank": 15,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 14616208.93129187
+    },
+    {
+      "symbol": "TRUMP/USDT",
+      "rank": 16,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 13704810.2904745
+    },
+    {
+      "symbol": "ENA/USDT",
+      "rank": 17,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 12142703.8048901
+    },
+    {
+      "symbol": "PEPE/USDT",
+      "rank": 18,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 11665411.700532777
+    },
+    {
+      "symbol": "ASTER/USDT",
+      "rank": 21,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 10270408.164083
+    },
+    {
+      "symbol": "WLD/USDT",
+      "rank": 22,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 9350500.8295739
+    },
+    {
+      "symbol": "LTC/USDT",
+      "rank": 23,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 9188693.51420949
+    },
+    {
+      "symbol": "LINK/USDT",
+      "rank": 24,
+      "n2026": 5952,
+      "warm": 2814,
+      "qv": 9026413.269340841
+    },
+    {
+      "symbol": "FIL/USDT",
+      "rank": 25,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 8682995.706771638
+    },
+    {
+      "symbol": "AAVE/USDT",
+      "rank": 26,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 6928662.93836308
+    },
+    {
+      "symbol": "ADA/USDT",
+      "rank": 27,
+      "n2026": 5952,
+      "warm": 20448,
+      "qv": 6687150.04706028
+    },
+    {
+      "symbol": "SUSHI/USDT",
+      "rank": 29,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 6148633.842594989
+    },
+    {
+      "symbol": "BCH/USDT",
+      "rank": 30,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 5981589.2662239
+    },
+    {
+      "symbol": "OP/USDT",
+      "rank": 31,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 4673399.62544156
+    },
+    {
+      "symbol": "ONDO/USDT",
+      "rank": 32,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 4619627.2406458
+    },
+    {
+      "symbol": "RAY/USDT",
+      "rank": 33,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 4415378.077541677
+    },
+    {
+      "symbol": "TRX/USDT",
+      "rank": 35,
+      "n2026": 5952,
+      "warm": 2814,
+      "qv": 4274500.452584596
+    },
+    {
+      "symbol": "STRK/USDT",
+      "rank": 36,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 4261551.660721575
+    },
+    {
+      "symbol": "XPL/USDT",
+      "rank": 37,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 4068723.0786559
+    },
+    {
+      "symbol": "BOME/USDT",
+      "rank": 38,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 3729268.8236913
+    },
+    {
+      "symbol": "AR/USDT",
+      "rank": 40,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 3189810.436215871
+    },
+    {
+      "symbol": "AVAX/USDT",
+      "rank": 41,
+      "n2026": 5952,
+      "warm": 2814,
+      "qv": 3148546.622333829
+    },
+    {
+      "symbol": "PENGU/USDT",
+      "rank": 42,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 3011339.594759
+    },
+    {
+      "symbol": "JUP/USDT",
+      "rank": 43,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2958471.6526267
+    },
+    {
+      "symbol": "XLM/USDT",
+      "rank": 44,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2815099.4011144773
+    },
+    {
+      "symbol": "DOT/USDT",
+      "rank": 45,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 2726959.489565848
+    },
+    {
+      "symbol": "CRV/USDT",
+      "rank": 46,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2615693.103075375
+    },
+    {
+      "symbol": "VIRTUAL/USDT",
+      "rank": 47,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2613773.4626173
+    },
+    {
+      "symbol": "BONK/USDT",
+      "rank": 49,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2550122.106205166
+    },
+    {
+      "symbol": "ORDI/USDT",
+      "rank": 50,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2538936.4016583
+    },
+    {
+      "symbol": "MOODENG/USDT",
+      "rank": 52,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 2334226.3921572
+    },
+    {
+      "symbol": "ICP/USDT",
+      "rank": 53,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 2143688.528764489
+    },
+    {
+      "symbol": "APT/USDT",
+      "rank": 55,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 1953262.6239623
+    },
+    {
+      "symbol": "JTO/USDT",
+      "rank": 57,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1785691.6027388
+    },
+    {
+      "symbol": "ETC/USDT",
+      "rank": 58,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1764301.824018111
+    },
+    {
+      "symbol": "SHIB/USDT",
+      "rank": 60,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 1690881.551345123
+    },
+    {
+      "symbol": "TIA/USDT",
+      "rank": 61,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 1689571.77505086
+    },
+    {
+      "symbol": "ETHFI/USDT",
+      "rank": 62,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1577696.65647471
+    },
+    {
+      "symbol": "FET/USDT",
+      "rank": 63,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1477353.2232949
+    },
+    {
+      "symbol": "PI/USDT",
+      "rank": 64,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1465064.47166113
+    },
+    {
+      "symbol": "SOPH/USDT",
+      "rank": 65,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1455757.4365323
+    },
+    {
+      "symbol": "LDO/USDT",
+      "rank": 66,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1414624.25922241
+    },
+    {
+      "symbol": "POL/USDT",
+      "rank": 67,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 1391284.0661578
+    },
+    {
+      "symbol": "BICO/USDT",
+      "rank": 68,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1339642.7312343111
+    },
+    {
+      "symbol": "WIF/USDT",
+      "rank": 69,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1327969.7977141
+    },
+    {
+      "symbol": "GRT/USDT",
+      "rank": 71,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1292693.2857155704
+    },
+    {
+      "symbol": "IOST/USDT",
+      "rank": 73,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1277495.5596282063
+    },
+    {
+      "symbol": "ZRO/USDT",
+      "rank": 74,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1272543.4544442
+    },
+    {
+      "symbol": "HBAR/USDT",
+      "rank": 75,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1270432.2760199066
+    },
+    {
+      "symbol": "MORPHO/USDT",
+      "rank": 76,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1218454.6209687
+    },
+    {
+      "symbol": "TRB/USDT",
+      "rank": 77,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1205805.63631418
+    },
+    {
+      "symbol": "WLFI/USDT",
+      "rank": 78,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1204401.490291
+    },
+    {
+      "symbol": "INJ/USDT",
+      "rank": 79,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 1178349.6880975
+    },
+    {
+      "symbol": "STX/USDT",
+      "rank": 80,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1133478.4510100877
+    },
+    {
+      "symbol": "CAT/USDT",
+      "rank": 81,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1070614.065004092
+    },
+    {
+      "symbol": "PENDLE/USDT",
+      "rank": 82,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 1033114.195209
+    },
+    {
+      "symbol": "ZORA/USDT",
+      "rank": 84,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 982273.1835767
+    },
+    {
+      "symbol": "NMR/USDT",
+      "rank": 85,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 975899.690888136
+    },
+    {
+      "symbol": "SPK/USDT",
+      "rank": 87,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 927882.687703
+    },
+    {
+      "symbol": "PNUT/USDT",
+      "rank": 89,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 892637.7156087
+    },
+    {
+      "symbol": "DOOD/USDT",
+      "rank": 90,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 882505.9048733
+    },
+    {
+      "symbol": "WOO/USDT",
+      "rank": 94,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 824227.2081021693
+    },
+    {
+      "symbol": "PEOPLE/USDT",
+      "rank": 95,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 798816.1771112124
+    },
+    {
+      "symbol": "ENS/USDT",
+      "rank": 96,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 780279.008667218
+    },
+    {
+      "symbol": "ALGO/USDT",
+      "rank": 97,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 742362.7387781112
+    },
+    {
+      "symbol": "DYDX/USDT",
+      "rank": 99,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 707909.2593294944
+    },
+    {
+      "symbol": "GOAT/USDT",
+      "rank": 100,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 700678.47277541
+    },
+    {
+      "symbol": "RENDER/USDT",
+      "rank": 102,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 660648.351191
+    },
+    {
+      "symbol": "ZK/USDT",
+      "rank": 106,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 589101.12091171
+    },
+    {
+      "symbol": "CATI/USDT",
+      "rank": 107,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 588162.4934094
+    },
+    {
+      "symbol": "CORE/USDT",
+      "rank": 110,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 557912.7451342
+    },
+    {
+      "symbol": "MET/USDT",
+      "rank": 111,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 555691.3007818
+    },
+    {
+      "symbol": "CFX/USDT",
+      "rank": 112,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 538136.3975173061
+    },
+    {
+      "symbol": "ATOM/USDT",
+      "rank": 114,
+      "n2026": 5952,
+      "warm": 10846,
+      "qv": 482663.548307065
+    },
+    {
+      "symbol": "EIGEN/USDT",
+      "rank": 116,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 470217.5180103
+    },
+    {
+      "symbol": "APE/USDT",
+      "rank": 118,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 444743.8226549958
+    },
+    {
+      "symbol": "KITE/USDT",
+      "rank": 119,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 437432.0703388
+    },
+    {
+      "symbol": "IOTA/USDT",
+      "rank": 120,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 416484.74008918874
+    },
+    {
+      "symbol": "PYTH/USDT",
+      "rank": 121,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 414401.44074483
+    },
+    {
+      "symbol": "BABY/USDT",
+      "rank": 122,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 408974.7006166
+    },
+    {
+      "symbol": "CSPR/USDT",
+      "rank": 124,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 395122.4578522218
+    },
+    {
+      "symbol": "SATS/USDT",
+      "rank": 125,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 389186.3400373314
+    },
+    {
+      "symbol": "COMP/USDT",
+      "rank": 126,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 388440.87769541
+    },
+    {
+      "symbol": "LAT/USDT",
+      "rank": 127,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 381361.64618447295
+    },
+    {
+      "symbol": "MERL/USDT",
+      "rank": 128,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 380511.77210217
+    },
+    {
+      "symbol": "CRO/USDT",
+      "rank": 129,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 378334.9910034393
+    },
+    {
+      "symbol": "OL/USDT",
+      "rank": 130,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 370340.2814703
+    },
+    {
+      "symbol": "GALA/USDT",
+      "rank": 132,
+      "n2026": 5952,
+      "warm": 1239,
+      "qv": 355111.4707127781
+    }
+  ]
+}

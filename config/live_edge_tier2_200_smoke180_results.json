@@ -1,0 +1,61 @@
+{
+  "interpretation_allowed": false,
+  "evidence_tier": "live_bbo_paper_fills",
+  "design": {
+    "start_equity": 200.0,
+    "slot": 100.0,
+    "windows_at_start": [
+      100.0,
+      100.0
+    ],
+    "config": "config/market_making_5m.yaml",
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT"
+    ]
+  },
+  "result": {
+    "n_events": 380,
+    "n_entries": 11,
+    "n_round_trips": 11,
+    "n_buys": 33,
+    "n_sells": 24,
+    "n_busy": 287,
+    "fees_paid": 0.3325731030272978,
+    "start_equity": 200.0,
+    "final_equity": 199.93842107346356,
+    "total_return_pct": -0.03078946326822063,
+    "peak_slots": 2,
+    "mean_open_slots": 0.9473684210526315,
+    "hold_seconds_mean": 15.45909090909091,
+    "hold_seconds_median": 7.45,
+    "n_holds": 11,
+    "duration_sec": 180.22581100463867,
+    "poll_sec": 2.0,
+    "n_symbols": 8,
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55,
+    "interpretation_allowed": false,
+    "evidence_tier": "live_bbo_paper_fills",
+    "notes": "Tier-2 evidence: live OKX BBO, paper maker fills with adverse selection. NOT live orders / NOT a live-edge claim. $200 start, fixed $100 windows (2 at start). Fee 0.07%/side.",
+    "holds_sec": [
+      0.0,
+      7.45,
+      19.0,
+      3.75,
+      22.65,
+      3.8,
+      11.45,
+      3.7,
+      7.25,
+      11.35,
+      79.65
+    ]
+  }
+}
