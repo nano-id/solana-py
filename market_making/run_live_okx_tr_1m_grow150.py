@@ -49,6 +49,8 @@ class LiveSlot:
     avg_cost: float = 0.0
     buy_order_id: str | None = None
     sell_order_id: str | None = None
+    buy_placed_ts: float = 0.0
+    sell_placed_ts: float = 0.0
 
 
 @dataclass
@@ -188,6 +190,8 @@ def save_state(path: Path, state: BotState, extra: dict[str, Any]) -> None:
                 "avg_cost": sl.avg_cost,
                 "buy_order_id": sl.buy_order_id,
                 "sell_order_id": sl.sell_order_id,
+                "buy_placed_ts": sl.buy_placed_ts,
+                "sell_placed_ts": sl.sell_placed_ts,
             }
             for s, sl in state.slots.items()
         },
@@ -214,6 +218,11 @@ def run_bot(
     state_path = log_dir / "live_okx_tr_1m_grow150_state.json"
     event_path = log_dir / "live_okx_tr_1m_grow150_events.jsonl"
 
+    grow_max = float(live.get("grow_max", 150))
+    peel = float(live.get("peel", 100))
+    remnant_min = float(live.get("remnant_min", 51))
+    buy_timeout = float(live.get("unfilled_buy_timeout_sec", 300.0))
+
     configure_clock(bar_sec, decision_sec)
     env = load_env_file(env_path)
     ex = connect_okx_tr(env, hostname=hostname)
@@ -221,7 +230,7 @@ def run_bot(
     symbols = [s for s in symbols if s in ex.markets]
     print(
         f"LIVE OKX TR 1m grow150 | symbols={len(symbols)} decision>={decision_sec} "
-        f"host={hostname} duration={duration_sec or '∞'}",
+        f"host={hostname} buy_timeout={buy_timeout:.0f}s duration={duration_sec or '∞'}",
         flush=True,
     )
 
@@ -265,9 +274,9 @@ def run_bot(
                 equity = mark_equity(bal, mids, symbols)
                 plan = slot_plan_grow150(
                     equity,
-                    grow_max=float(live.get("grow_max", 150)),
-                    peel=float(live.get("peel", 100)),
-                    remnant_min=float(live.get("remnant_min", 51)),
+                    grow_max=grow_max,
+                    peel=peel,
+                    remnant_min=remnant_min,
                 )
                 max_slots = max(len(plan), 1)
 
@@ -335,26 +344,58 @@ def run_bot(
                                 )
                         continue
 
-                    # No inventory: keep resting buy if still open; else free slot.
+                    # No inventory: keep resting buy if still open (with timeout); else free.
                     if sl.buy_order_id:
+                        aged = (
+                            sl.buy_placed_ts > 0
+                            and (time.time() - sl.buy_placed_ts) >= buy_timeout
+                        )
                         still_open = False
                         try:
                             od = ex.fetch_order(sl.buy_order_id, sym)
                             st = str(od.get("status") or "").lower()
-                            still_open = st in {"open", "new", "partially_filled", "live"}
+                            still_open = st in {
+                                "open",
+                                "new",
+                                "partially_filled",
+                                "live",
+                            }
                             filled = float(od.get("filled") or 0.0)
                             if filled > 0 and sl.avg_cost <= 0:
-                                sl.avg_cost = float(od.get("average") or od.get("price") or 0.0)
+                                sl.avg_cost = float(
+                                    od.get("average") or od.get("price") or 0.0
+                                )
                         except Exception:
-                            # Unknown — assume still working to avoid duplicate buys.
                             still_open = True
-                        if still_open:
+
+                        if still_open and aged:
+                            try:
+                                ex.cancel_order(sl.buy_order_id, sym)
+                                state.n_cancels += 1
+                            except Exception:
+                                pass
                             print(
-                                f"  HOLD buy {sym} order={sl.buy_order_id}",
+                                f"  TIMEOUT buy {sym} after {buy_timeout:.0f}s — rotate",
+                                flush=True,
+                            )
+                            sl.buy_order_id = None
+                            sl.buy_placed_ts = 0.0
+                            # fall through to free slot
+                        elif still_open:
+                            age = (
+                                time.time() - sl.buy_placed_ts
+                                if sl.buy_placed_ts > 0
+                                else 0.0
+                            )
+                            print(
+                                f"  HOLD buy {sym} oid={sl.buy_order_id} "
+                                f"age={age:.0f}s/{buy_timeout:.0f}s bud={sl.budget:.2f}",
                                 flush=True,
                             )
                             continue
-                        sl.buy_order_id = None
+                        else:
+                            sl.buy_order_id = None
+                            sl.buy_placed_ts = 0.0
 
                     if sl.sell_order_id:
                         try:
@@ -442,7 +483,10 @@ def run_bot(
                         oid = place_postonly(ex, sym, "buy", amt, px)
                         if oid:
                             state.slots[sym] = LiveSlot(
-                                symbol=sym, budget=budget, buy_order_id=oid
+                                symbol=sym,
+                                budget=budget,
+                                buy_order_id=oid,
+                                buy_placed_ts=time.time(),
                             )
                             state.n_buy_orders += 1
                             cash -= notional

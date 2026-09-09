@@ -73,4 +73,6 @@ live:
   grow_max: 150.0
   peel: 100.0
   remnant_min: 51.0
+  # Cancel resting BUY if unfilled this long; free window for another coin.
+  unfilled_buy_timeout_sec: 300.0
   log_dir: ~/bot/logs
