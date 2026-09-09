@@ -221,7 +221,7 @@ def run_bot(
     grow_max = float(live.get("grow_max", 150))
     peel = float(live.get("peel", 100))
     remnant_min = float(live.get("remnant_min", 51))
-    buy_timeout = float(live.get("unfilled_buy_timeout_sec", 300.0))
+    buy_timeout = float(live.get("unfilled_buy_timeout_sec", 120.0))
 
     configure_clock(bar_sec, decision_sec)
     env = load_env_file(env_path)
