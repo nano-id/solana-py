@@ -1,13 +1,15 @@
-"""Calibrate AS MM params on 1-minute candles (week windows).
+"""Calibrate AS MM params on 1-minute candles with OHLC touch fills.
 
-Bar knobs are in 1m units; wall-clock targets match frozen 1h (×60) / 5m (×5):
-  tau ∈ {960,1920,2880}  (=16/32/48h)
-  vol_lookback = 11520   (=192h)
-  ewma_halflife = 5760   (=96h)
-
-Default IS: last week of August 2026 (2026-08-25 → 2026-09-01).
-OOS check: first week of September 2026 (2026-09-01 → 2026-09-08).
-Warmup starts ~8 days before IS so vol_lookback can fill.
+v2 (OHLC-touch, 1m-native horizons)
+------------------------------------
+- Fill model: deterministic — buy if candle low <= bid, sell if high >= ask.
+  No Bernoulli fill_prob / adverse_frac dice.
+- Time knobs are *1m-scale*, not wall-matched 1h×60:
+    tau ∈ {30,60,120,240} bars (=0.5–4h)
+    vol_lookback ∈ {180,360,720} (=3–12h)
+    ewma_halflife = lookback / 2
+- Same IS/OOS week windows as v1 lock.
+- Selection: max pct_pos → mean_ret → min_ret (under touch fills).
 
 Does not modify frozen 1h / 15m / 5m locks.
 interpretation_allowed=false.
@@ -28,17 +30,15 @@ import pandas as pd
 import yaml
 
 from market_making.config import MarketMakingConfig
-from market_making.simulator import load_okx_mids
 
 HOURS_PER_BAR = 1.0 / 60.0
 BARS_PER_YEAR = 525_960.0  # 365.25 * 24 * 60
 
-# Default windows (UTC)
 IS_START = "2026-08-25"
 IS_END = "2026-09-01"
 OOS_START = "2026-09-01"
 OOS_END = "2026-09-08"
-# ~8d warmup for vol_lookback=11520
+# Max lookback 720 → ≥12h warmup; keep Aug-17 for headroom / data continuity.
 WARMUP_START = "2026-08-17"
 
 
@@ -56,21 +56,51 @@ class OneMinCalibResult:
     method: str
     hours_per_bar: float = HOURS_PER_BAR
     bars_per_year: float = BARS_PER_YEAR
+    fill_model: str = "ohlc_touch"
 
 
 def _apply_params(cfg: MarketMakingConfig, params: dict[str, float]) -> MarketMakingConfig:
     update = dict(params)
     if "vol_lookback" in update:
         update["vol_lookback"] = int(update["vol_lookback"])
+    # Touch model: fill_prob unused; keep bars_per_year correct for any downstream.
     sim = cfg.sim.model_copy(
         update={
             "bars_per_year": BARS_PER_YEAR,
-            "fill_prob": float(cfg.sim.fill_prob),
-            "adverse_frac": float(cfg.sim.adverse_frac),
+            "fill_prob": 1.0,  # unused under touch; document as N/A in lock
+            "adverse_frac": 0.0,
         }
     )
     update["sim"] = sim
     return cfg.model_copy(update=update)
+
+
+def _load_ohlc(
+    symbol: str,
+    *,
+    timeframe: str,
+    start: str,
+    end_exclusive: str,
+    root: str | Path,
+    exchange_id: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pd.DatetimeIndex]:
+    path = Path(root) / exchange_id / timeframe / f"{symbol.replace('/', '_')}.parquet"
+    if not path.exists():
+        raise FileNotFoundError(path)
+    df = pd.read_parquet(path)
+    ts = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    mask = (ts >= pd.Timestamp(start, tz="UTC")) & (ts < pd.Timestamp(end_exclusive, tz="UTC"))
+    sl = df.loc[mask].sort_values("timestamp")
+    if len(sl) < 2:
+        raise ValueError(f"Insufficient bars for {symbol} {start}→{end_exclusive}: {len(sl)}")
+    stamps = pd.DatetimeIndex(pd.to_datetime(sl["timestamp"], unit="ms", utc=True))
+    return (
+        sl["open"].to_numpy(dtype=float),
+        sl["high"].to_numpy(dtype=float),
+        sl["low"].to_numpy(dtype=float),
+        sl["close"].to_numpy(dtype=float),
+        stamps,
+    )
 
 
 def run_window_sim(
@@ -81,18 +111,18 @@ def run_window_sim(
     warmup_start: str,
     window_start: str,
     window_end: str,
-    seed: int,
+    seed: int = 0,
 ) -> dict[str, float]:
-    """Run mid-path sim from warmup→end; score equity return only on window.
+    """OHLC-touch mid-path AS sim; score equity return only on [window_start, window_end).
 
-    Fast path: no per-bar DataFrame (needed for 1m grid search).
+    seed retained for API compatibility (unused — deterministic).
     """
+    del seed  # deterministic
     from market_making.engine import QuoteEngine
     from market_making.fees import fee_on_notional
     from market_making.inventory import InventoryState
-    from market_making.simulator import _fill_prob
 
-    mids, stamps = load_okx_mids(
+    _o, highs, lows, closes, stamps = _load_ohlc(
         symbol,
         timeframe=timeframe,
         start=warmup_start,
@@ -100,13 +130,10 @@ def run_window_sim(
         root=cfg.storage_root,
         exchange_id=cfg.exchange_id,
     )
-    mids = np.asarray(mids, dtype=float)
-    stamps = pd.to_datetime(pd.Index(stamps), utc=True)
-    mid0 = float(mids[0])
+    mid0 = float(closes[0])
     if mid0 > 0:
         cfg = cfg.model_copy(update={"max_inventory": 10_000.0 / mid0})
 
-    sc = cfg.sim
     eng = QuoteEngine(cfg)
     look = max(int(cfg.vol_lookback), 8)
     inv = InventoryState(
@@ -116,27 +143,34 @@ def run_window_sim(
         max_abs=cfg.max_inventory,
         halt_frac=cfg.inventory_halt_frac,
     )
-    rng = np.random.default_rng(seed + 17)
     t0 = pd.Timestamp(window_start, tz="UTC")
     t1 = pd.Timestamp(window_end, tz="UTC")
     eq0 = eq1 = None
     halfs: list[float] = []
     n_scored = 0
+    n_buys = n_sells = 0
 
-    for i, mid in enumerate(mids):
+    for i, mid in enumerate(closes):
         mid_f = float(mid)
         lo = 0 if i + 1 <= look else i + 1 - look
-        q = eng.quote(mid_f, inv, mid_history=mids[lo : i + 1])
-        if q.quoting and q.bid_size > 0:
-            if rng.random() < _fill_prob(mid_f, q.bid, q.half_spread_bps, sc.fill_prob):
-                px = q.bid * (1.0 + sc.adverse_frac * (q.half_spread_bps / 1e4))
-                fee = fee_on_notional(px * q.bid_size, cfg)
-                inv.apply_buy(price=px, size=q.bid_size, fee=fee, bar=i)
-        if q.quoting and q.ask_size > 0:
-            if rng.random() < _fill_prob(mid_f, q.ask, q.half_spread_bps, sc.fill_prob):
-                px = q.ask * (1.0 - sc.adverse_frac * (q.half_spread_bps / 1e4))
-                fee = fee_on_notional(px * q.ask_size, cfg)
-                inv.apply_sell(price=px, size=q.ask_size, fee=fee, bar=i)
+        q = eng.quote(mid_f, inv, mid_history=closes[lo : i + 1])
+        hi_i = float(highs[i])
+        lo_i = float(lows[i])
+
+        # Deterministic touch fills at quote (no adverse dice).
+        if q.quoting and q.bid_size > 0 and lo_i <= q.bid + 1e-12:
+            px = float(q.bid)
+            fee = fee_on_notional(px * q.bid_size, cfg)
+            inv.apply_buy(price=px, size=q.bid_size, fee=fee, bar=i)
+            n_buys += 1
+        if q.quoting and q.ask_size > 0 and hi_i >= q.ask - 1e-12:
+            # Cap sell to inventory (spot long-only book).
+            sell_sz = min(float(q.ask_size), max(float(inv.base), 0.0))
+            if sell_sz > 1e-12:
+                px = float(q.ask)
+                fee = fee_on_notional(px * sell_sz, cfg)
+                inv.apply_sell(price=px, size=sell_sz, fee=fee, bar=i)
+                n_sells += 1
 
         ts = stamps[i]
         if ts >= t0 and ts < t1:
@@ -149,12 +183,20 @@ def run_window_sim(
                 halfs.append(float(q.half_spread_bps))
 
     if eq0 is None or eq1 is None or n_scored == 0:
-        return {"ret": 0.0, "half": 0.0, "n": 0.0}
+        return {
+            "ret": 0.0,
+            "half": 0.0,
+            "n": 0.0,
+            "n_buys": 0.0,
+            "n_sells": 0.0,
+        }
     ret = 100.0 * (eq1 - eq0) / eq0 if eq0 else 0.0
     return {
         "ret": float(ret),
         "half": float(np.mean(halfs)) if halfs else 0.0,
         "n": float(n_scored),
+        "n_buys": float(n_buys),
+        "n_sells": float(n_sells),
     }
 
 
@@ -170,6 +212,8 @@ def _eval_window(
 ) -> dict[str, float]:
     rets: list[float] = []
     halfs: list[float] = []
+    buys: list[float] = []
+    sells: list[float] = []
     for sym in symbols:
         try:
             s = run_window_sim(
@@ -186,6 +230,8 @@ def _eval_window(
             continue
         rets.append(s["ret"])
         halfs.append(s["half"])
+        buys.append(s["n_buys"])
+        sells.append(s["n_sells"])
     arr = np.asarray(rets, dtype=float)
     return {
         "n": float(len(arr)),
@@ -193,28 +239,34 @@ def _eval_window(
         "mean_ret": float(arr.mean()) if len(arr) else 0.0,
         "min_ret": float(arr.min()) if len(arr) else 0.0,
         "mean_half": float(np.mean(halfs)) if halfs else 0.0,
+        "mean_buys": float(np.mean(buys)) if buys else 0.0,
+        "mean_sells": float(np.mean(sells)) if sells else 0.0,
     }
 
 
 def default_1m_param_grid(*, compact: bool = True) -> list[dict[str, float]]:
-    """Grid in 1m bars (wall-matched to frozen 1h ×60).
+    """1m-native grid (NOT 1h×60 wall-match).
 
-    compact=True (default): 18 pts — kappa/eta fixed to 5m-lock values for week search.
-    compact=False: full 72-pt product grid.
+    compact: 36 pts. full: 72 pts (kappa/eta expanded).
     """
     gammas = [0.08, 0.12, 0.18]
-    taus = [960.0, 1920.0, 2880.0]
-    advs = [0.35, 0.45]
-    vol_lookback = 11520
-    ewma_halflife = 5760.0
+    taus = [30.0, 60.0, 120.0, 240.0]  # 0.5h–4h
+    advs = [0.25, 0.35]
+    lookbacks = [180.0, 360.0, 720.0]  # 3h / 6h / 12h
     if compact:
+        # Drop longest lookback to keep week search tractable → 24 pts
+        lookbacks = [180.0, 360.0]
         kappas = [0.8]
         etas = [2.5]
+        liqs = [4.0]
     else:
         kappas = [0.8, 1.2]
-        etas = [2.5, 3.5]
+        etas = [2.5]
+        liqs = [4.0, 6.0]
     out: list[dict[str, float]] = []
-    for g, k, t, e, a in itertools.product(gammas, kappas, taus, etas, advs):
+    for g, k, t, e, a, vl, lq in itertools.product(
+        gammas, kappas, taus, etas, advs, lookbacks, liqs
+    ):
         out.append(
             {
                 "gamma": float(g),
@@ -222,9 +274,9 @@ def default_1m_param_grid(*, compact: bool = True) -> list[dict[str, float]]:
                 "tau_bars": float(t),
                 "size_eta": float(e),
                 "adverse_vol_mult": float(a),
-                "vol_lookback": float(vol_lookback),
-                "ewma_halflife": float(ewma_halflife),
-                "liq_bps": 6.0,
+                "vol_lookback": float(vl),
+                "ewma_halflife": float(vl / 2.0),
+                "liq_bps": float(lq),
                 "vol_spread_mult": 0.25,
                 "inventory_halt_frac": 0.80,
             }
@@ -232,8 +284,14 @@ def default_1m_param_grid(*, compact: bool = True) -> list[dict[str, float]]:
     return out
 
 
-def _score(is_stats: dict[str, float]) -> tuple[float, float, float]:
-    return (is_stats["pct_pos"], is_stats["mean_ret"], is_stats["min_ret"])
+def _score(is_stats: dict[str, float]) -> tuple[float, float, float, float]:
+    # Prefer profitable + active books (mean_sells as activity proxy).
+    return (
+        is_stats["pct_pos"],
+        is_stats["mean_ret"],
+        is_stats["min_ret"],
+        float(is_stats.get("mean_sells", 0.0)),
+    )
 
 
 def _eval_one_trial(payload: dict[str, Any]) -> tuple[int, dict[str, float], dict[str, float]]:
@@ -273,7 +331,7 @@ def calibrate_1m(
     symbols = list(calib_symbols or cfg.symbols)
     workers = n_workers if n_workers is not None else max(1, min(4, (os.cpu_count() or 2)))
 
-    ranked: list[tuple[tuple[float, float, float], dict[str, float], dict[str, float]]] = []
+    ranked: list[tuple[tuple[float, float, float, float], dict[str, float], dict[str, float]]] = []
     cfg_dump = cfg.model_dump()
     payloads = [
         {
@@ -291,7 +349,7 @@ def calibrate_1m(
     ]
 
     print(
-        f"1m calib IS {is_start}→{is_end} (warmup {warmup_start}) "
+        f"1m OHLC-touch calib IS {is_start}→{is_end} (warmup {warmup_start}) "
         f"symbols={len(symbols)} grid={len(grid)} workers={workers}",
         flush=True,
     )
@@ -299,7 +357,12 @@ def calibrate_1m(
         for i, payload in enumerate(payloads):
             idx, params, is_stats = _eval_one_trial(payload)
             ranked.append((_score(is_stats), params, is_stats))
-            print(f"1m calib progress {i + 1}/{len(grid)}", flush=True)
+            print(
+                f"1m calib progress {i + 1}/{len(grid)} "
+                f"pct={is_stats['pct_pos']:.0f} mean={is_stats['mean_ret']:.3f} "
+                f"half={is_stats['mean_half']:.1f}",
+                flush=True,
+            )
     else:
         with ProcessPoolExecutor(max_workers=workers) as ex:
             futs = {ex.submit(_eval_one_trial, p): p["idx"] for p in payloads}
@@ -308,7 +371,12 @@ def calibrate_1m(
                 idx, params, is_stats = fut.result()
                 ranked.append((_score(is_stats), params, is_stats))
                 done += 1
-                print(f"1m calib progress {done}/{len(grid)}", flush=True)
+                print(
+                    f"1m calib progress {done}/{len(grid)} "
+                    f"pct={is_stats['pct_pos']:.0f} mean={is_stats['mean_ret']:.3f} "
+                    f"half={is_stats['mean_half']:.1f}",
+                    flush=True,
+                )
 
     ranked.sort(key=lambda t: t[0], reverse=True)
     best_params = ranked[0][1]
@@ -339,10 +407,11 @@ def calibrate_1m(
         top_candidates=top,
         interpretation_allowed=False,
         method=(
-            "1m candle AS grid (wall-matched to 1h×60); "
+            "1m OHLC-touch AS grid (1m-native tau/lookback; NOT 1h×60); "
             f"IS={is_start}→{is_end}; OOS={oos_start}→{oos_end}; "
-            "select max pct_pos then mean_ret then min_ret"
+            "select max pct_pos then mean_ret then min_ret then mean_sells"
         ),
+        fill_model="ohlc_touch",
     )
 
 
@@ -366,12 +435,14 @@ def write_params_to_yaml(params: dict[str, float], path: str | Path) -> None:
             mm[k] = float(v) if isinstance(v, (int, float)) else v
     mm.setdefault("sim", {})
     mm["sim"]["bars_per_year"] = BARS_PER_YEAR
+    mm["sim"]["fill_prob"] = 1.0  # unused under OHLC touch
+    mm["sim"]["adverse_frac"] = 0.0
     path.write_text(yaml.safe_dump(raw, sort_keys=False))
 
 
 def lock_params_json(
     result: OneMinCalibResult,
-    path: str | Path = "config/params_1m_v1_auglastweek2026.json",
+    path: str | Path = "config/params_1m_v2_ohlc_touch_auglastweek2026.json",
 ) -> None:
     payload = {
         "locked": True,
@@ -380,6 +451,7 @@ def lock_params_json(
         "timeframe": "1m",
         "hours_per_bar": HOURS_PER_BAR,
         "bars_per_year": BARS_PER_YEAR,
+        "fill_model": "ohlc_touch",
         "is_window": result.is_window,
         "oos_window": result.oos_window,
         "warmup_start": result.warmup_start,
@@ -388,10 +460,16 @@ def lock_params_json(
         "oos_stats": result.oos_stats,
         "method": result.method,
         "sim": {
-            "fill_prob": 0.25,
-            "adverse_frac": 0.55,
+            "fill_model": "ohlc_touch",
+            "fill_prob": None,
+            "adverse_frac": 0.0,
             "bars_per_year": BARS_PER_YEAR,
         },
+        "supersedes": "config/params_1m_v1_auglastweek2026.json",
+        "notes": (
+            "v2 replaces 1h×60 wall-matched knobs + Bernoulli fills with "
+            "1m-native horizons and deterministic OHLC touch fills."
+        ),
     }
     Path(path).write_text(json.dumps(payload, indent=2, default=str))
 
@@ -401,8 +479,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from market_making.config import load_mm_config
 
-    p = argparse.ArgumentParser(description="Calibrate 1m AS MM on Aug last week")
-    p.add_argument("--config", default="config/market_making_1m.yaml")
+    p = argparse.ArgumentParser(description="Calibrate 1m AS MM with OHLC touch fills")
+    p.add_argument("--config", default="config/market_making_1m_fee008.yaml")
     p.add_argument("--is-start", default=IS_START)
     p.add_argument("--is-end", default=IS_END)
     p.add_argument("--oos-start", default=OOS_START)
@@ -412,7 +490,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-symbols", type=int, default=30)
     p.add_argument("--full-grid", action="store_true")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--lock-path", default="config/params_1m_v1_auglastweek2026.json")
+    p.add_argument(
+        "--lock-path",
+        default="config/params_1m_v2_ohlc_touch_auglastweek2026.json",
+    )
+    p.add_argument(
+        "--calib-out",
+        default="config/calib_1m_v2_ohlc_touch_auglastweek2026_full.json",
+    )
+    p.add_argument(
+        "--write-yamls",
+        nargs="*",
+        default=[
+            "config/market_making_1m_fee008.yaml",
+            "config/market_making_1m.yaml",
+            "config/live_okx_tr_1m_grow150.yaml",
+        ],
+        help="1m yaml configs to update with selected params",
+    )
     args = p.parse_args(argv)
 
     cfg = load_mm_config(args.config)
@@ -429,13 +524,18 @@ def main(argv: list[str] | None = None) -> int:
         calib_symbols=symbols,
         compact_grid=not bool(args.full_grid),
     )
-    save_1m_calib(result, "config/calib_1m_auglastweek2026_full.json")
+    save_1m_calib(result, args.calib_out)
     lock_params_json(result, args.lock_path)
-    write_params_to_yaml(result.selected_params, args.config)
+    for yml in args.write_yamls:
+        if Path(yml).exists():
+            write_params_to_yaml(result.selected_params, yml)
+            print(f"updated {yml}", flush=True)
     print(
         f"LOCKED {args.lock_path}: {result.selected_params}\n"
-        f"  IS pct_pos={result.is_stats['pct_pos']:.1f}% mean={result.is_stats['mean_ret']:.3f}%\n"
-        f"  OOS pct_pos={result.oos_stats['pct_pos']:.1f}% mean={result.oos_stats['mean_ret']:.3f}%",
+        f"  IS pct_pos={result.is_stats['pct_pos']:.1f}% mean={result.is_stats['mean_ret']:.3f}% "
+        f"half={result.is_stats['mean_half']:.1f} buys={result.is_stats.get('mean_buys', 0):.0f}\n"
+        f"  OOS pct_pos={result.oos_stats['pct_pos']:.1f}% mean={result.oos_stats['mean_ret']:.3f}% "
+        f"half={result.oos_stats['mean_half']:.1f}",
         flush=True,
     )
     return 0
