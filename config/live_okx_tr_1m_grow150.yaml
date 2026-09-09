@@ -67,8 +67,8 @@ market_making:
     bars_per_year: 525960.0
 live:
   bar_sec: 60
-  decision_sec: 59.2
-  poll_sec: 0.25
+  decision_sec: 59.0
+  poll_sec: 0.2
   env_file: ~/.config/okx-tr-test.env
   grow_max: 150.0
   peel: 100.0
