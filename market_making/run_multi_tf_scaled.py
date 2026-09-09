@@ -471,12 +471,7 @@ def run_multi_tf(
         layers={tf: asdict(stats[tf]) for tf in PRIORITY},
         symbols=list(symbols),
         window={"start": start, "end_exclusive": end_exclusive},
-        full_plan_notionals={
-            "1m": 250.0,
-            "30m": 1000.0,
-            "1h": 2000.0,
-            "4h": 10000.0,
-        },
+        full_plan_notionals={tf: float(notionals[tf]) for tf in PRIORITY},
         scaled_notionals={tf: float(notionals[tf]) for tf in PRIORITY},
         conflict_rules=[
             "one_symbol_one_tf",
@@ -486,10 +481,13 @@ def run_multi_tf(
             "fee_fixed_0.08_no_vip_discount",
         ],
         notes=(
-            f"Scaled ×{scale_factor} from $100k plan; fee FIXED {commission_pct}%/side "
-            "(OKX Regular, no VIP). 30m params wall-matched from 15m lock; "
-            "4h from hourly lock. Paper fill_prob=0.25 adverse=0.55. "
-            "interpretation_allowed=false."
+            f"Equity=${equity0:.0f} scale_factor={scale_factor}; "
+            f"notionals 1m/30m/1h/4h="
+            f"{notionals['1m']:.0f}/{notionals['30m']:.0f}/"
+            f"{notionals['1h']:.0f}/{notionals['4h']:.0f}; "
+            f"fee FIXED {commission_pct}%/side (OKX Regular, no VIP). "
+            "30m params wall-matched from 15m lock; 4h from hourly lock. "
+            "Paper fill_prob=0.25 adverse=0.55. interpretation_allowed=false."
         ),
         open_end=[],
     )

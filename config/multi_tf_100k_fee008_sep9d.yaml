@@ -1,0 +1,91 @@
+# Full-size multi-TF paper: Sep 2026 first 9 days.
+# Notionals: 1m $200 / 30m $1000 / 1h $2000 / 4h $10000
+# Equity $100k. Fee FIXED 0.08%/side (OKX Regular).
+# interpretation_allowed=false
+
+exchange:
+  id: okx
+  fallbacks:
+  - bybit
+  - binance
+  quote: USDT
+  market_type: spot
+storage:
+  root: data
+
+multi_tf:
+  interpretation_allowed: false
+  scale_factor: 1.0
+  full_equity: 100000.0
+  equity: 100000.0
+  commission_pct: 0.08
+  layers:
+    - tf: 1m
+      full_notional: 200.0
+      notional: 200.0
+      max_slots: 2
+      priority: 4
+      bars_per_year: 525960.0
+      hours_per_bar: 0.016666666666666666
+    - tf: 30m
+      full_notional: 1000.0
+      notional: 1000.0
+      max_slots: 2
+      priority: 3
+      source_tf: 15m
+      resample_every: 2
+      bars_per_year: 17520.0
+      hours_per_bar: 0.5
+    - tf: 1h
+      full_notional: 2000.0
+      notional: 2000.0
+      max_slots: 2
+      priority: 2
+      bars_per_year: 8760.0
+      hours_per_bar: 1.0
+    - tf: 4h
+      full_notional: 10000.0
+      notional: 10000.0
+      max_slots: 2
+      priority: 1
+      bars_per_year: 2190.0
+      hours_per_bar: 4.0
+  conflict:
+    one_symbol_one_tf: true
+    priority_order: [4h, 1h, 30m, 1m]
+  window:
+    start: "2026-09-01"
+    end_exclusive: "2026-09-10"
+  symbols:
+  # Full coverage through 2026-09-09 06:50 UTC on local 1m store
+  - BTC/USDT
+  - ETH/USDT
+  - BNB/USDT
+  - SOL/USDT
+  - XRP/USDT
+  - DOGE/USDT
+  - ADA/USDT
+  - LTC/USDT
+  - AVAX/USDT
+  - LINK/USDT
+  - DOT/USDT
+  - TRX/USDT
+
+market_making:
+  commission_pct: 0.08
+  edge_buffer_bps: 5.0
+  min_half_spread_bps: 12.0
+  inventory_skew_bps: 8.0
+  target_inventory: 0.0
+  max_inventory: 1.0
+  size_frac_of_max: 0.1
+  inventory_halt_frac: 0.8
+  liq_bps: 6.0
+  vol_spread_mult: 0.25
+  use_as_quotes: true
+  portfolio_flat_eps: 1.0e-08
+  interpretation_allowed: false
+  sim:
+    seed: 42
+    fill_prob: 0.25
+    adverse_frac: 0.55
