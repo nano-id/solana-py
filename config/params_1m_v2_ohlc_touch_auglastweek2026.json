@@ -1,0 +1,57 @@
+{
+  "locked": true,
+  "interpretation_allowed": false,
+  "created_from": "market_making.calibrate_1m",
+  "timeframe": "1m",
+  "hours_per_bar": 0.016666666666666666,
+  "bars_per_year": 525960.0,
+  "fill_model": "ohlc_touch",
+  "is_window": {
+    "start": "2026-08-25",
+    "end_exclusive": "2026-09-01"
+  },
+  "oos_window": {
+    "start": "2026-09-01",
+    "end_exclusive": "2026-09-08"
+  },
+  "warmup_start": "2026-08-17",
+  "selected_params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 60.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.25,
+    "vol_lookback": 360.0,
+    "ewma_halflife": 180.0,
+    "liq_bps": 4.0,
+    "vol_spread_mult": 0.25,
+    "inventory_halt_frac": 0.8
+  },
+  "is_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 3.800252506102248,
+    "min_ret": 0.004030065558144231,
+    "mean_half": 16.71590465850742,
+    "mean_buys": 1067.1,
+    "mean_sells": 979.1666666666666
+  },
+  "oos_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 5.995128781375024,
+    "min_ret": 0.08333503739313956,
+    "mean_half": 18.271255606880725,
+    "mean_buys": 1527.5666666666666,
+    "mean_sells": 1403.3333333333333
+  },
+  "method": "1m OHLC-touch AS grid (1m-native tau/lookback; NOT 1h\u00d760); IS=2026-08-25\u21922026-09-01; OOS=2026-09-01\u21922026-09-08; select max pct_pos then mean_ret then min_ret then mean_sells",
+  "sim": {
+    "fill_model": "ohlc_touch",
+    "fill_prob": null,
+    "adverse_frac": 0.0,
+    "bars_per_year": 525960.0
+  },
+  "supersedes": "config/params_1m_v1_auglastweek2026.json",
+  "notes": "v2 replaces 1h\u00d760 wall-matched knobs + Bernoulli fills with 1m-native horizons and deterministic OHLC touch fills."
+}
