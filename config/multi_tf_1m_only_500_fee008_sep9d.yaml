@@ -1,0 +1,75 @@
+# 1m-only paper: $500 notional, Sep first 9 days, fee 0.08%/side.
+# Other TFs disabled (max_slots=0). Equity $100k for kasa parity.
+# interpretation_allowed=false
+
+exchange:
+  id: okx
+  fallbacks:
+  - bybit
+  - binance
+  quote: USDT
+  market_type: spot
+storage:
+  root: data
+
+multi_tf:
+  interpretation_allowed: false
+  scale_factor: 1.0
+  full_equity: 100000.0
+  equity: 100000.0
+  commission_pct: 0.08
+  layers:
+    - tf: 1m
+      full_notional: 500.0
+      notional: 500.0
+      max_slots: 12
+      priority: 1
+      bars_per_year: 525960.0
+      hours_per_bar: 0.016666666666666666
+    - tf: 30m
+      notional: 1000.0
+      max_slots: 0
+      priority: 99
+    - tf: 1h
+      notional: 2000.0
+      max_slots: 0
+      priority: 99
+    - tf: 4h
+      notional: 10000.0
+      max_slots: 0
+      priority: 99
+  window:
+    start: "2026-09-01"
+    end_exclusive: "2026-09-10"
+  symbols:
+  - BTC/USDT
+  - ETH/USDT
+  - BNB/USDT
+  - SOL/USDT
+  - XRP/USDT
+  - DOGE/USDT
+  - ADA/USDT
+  - LTC/USDT
+  - AVAX/USDT
+  - LINK/USDT
+  - DOT/USDT
+  - TRX/USDT
+
+market_making:
+  commission_pct: 0.08
+  edge_buffer_bps: 5.0
+  min_half_spread_bps: 12.0
+  inventory_skew_bps: 8.0
+  target_inventory: 0.0
+  max_inventory: 1.0
+  size_frac_of_max: 0.1
+  inventory_halt_frac: 0.8
+  liq_bps: 6.0
+  vol_spread_mult: 0.25
+  use_as_quotes: true
+  portfolio_flat_eps: 1.0e-08
+  interpretation_allowed: false
+  sim:
+    seed: 42
+    fill_prob: 0.25
+    adverse_frac: 0.55
