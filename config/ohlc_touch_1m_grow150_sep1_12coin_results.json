@@ -1,0 +1,93 @@
+{
+  "interpretation_allowed": false,
+  "design": {
+    "mode": "ohlc_touch_deterministic",
+    "start_equity": 60.0,
+    "slot_mode": "grow150",
+    "buy_timeout_bars": 2,
+    "trade_window": "2026-09-01\u21922026-09-02",
+    "warmup_start": "2026-08-17",
+    "n_symbols": 12,
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT",
+      "AVAX/USDT",
+      "LINK/USDT",
+      "DOT/USDT",
+      "LTC/USDT"
+    ],
+    "fill_model": "low<=bid / high>=ask; no RNG; no adverse_frac",
+    "decision": "1m close (== end-of-bar)",
+    "params": "config/live_okx_tr_1m_grow150.yaml"
+  },
+  "result": {
+    "n_bars_trade": 1440,
+    "n_buy_orders": 720,
+    "n_buy_fills": 0,
+    "n_buy_stops": 720,
+    "n_targets": 0,
+    "n_open_eod": 0,
+    "n_sell_fills": 0,
+    "fees_paid": 0.0,
+    "realized_pnl": 0.0,
+    "start_equity": 60.0,
+    "final_equity": 60.0,
+    "return_pct": 0.0,
+    "cash_end": 60.0,
+    "inventory_mark_end": 0.0,
+    "interpretation_allowed": false,
+    "notes": "Deterministic OHLC touch: buy if low<=bid within 2 bars else stop; target if high>=ask. No RNG. Fee per side at fill. Not a live-edge claim.",
+    "targets": [],
+    "open_eod": [],
+    "stops_sample": [
+      {
+        "ts": "2026-09-01 00:02:00+00:00",
+        "symbol": "AVAX/USDT",
+        "reason": "buy_timeout",
+        "buy_px": 7.116649312894308,
+        "bars_waited": 2,
+        "low_min": 7.227
+      },
+      {
+        "ts": "2026-09-01 00:04:00+00:00",
+        "symbol": "DOT/USDT",
+        "reason": "buy_timeout",
+        "buy_px": 0.8258174624981812,
+        "bars_waited": 2,
+        "low_min": 0.8394
+      },
+      {
+        "ts": "2026-09-01 00:06:00+00:00",
+        "symbol": "DOT/USDT",
+        "reason": "buy_timeout",
+        "buy_px": 0.8244195647533531,
+        "bars_waited": 2,
+        "low_min": 0.8395
+      },
+      {
+        "ts": "2026-09-01 00:08:00+00:00",
+        "symbol": "SOL/USDT",
+        "reason": "buy_timeout",
+        "buy_px": 101.92450592896655,
+        "bars_waited": 2,
+        "low_min": 103.07
+      },
+      {
+        "ts": "2026-09-01 00:10:00+00:00",
+        "symbol": "ADA/USDT",
+        "reason": "buy_timeout",
+        "buy_px": 0.19635497980849975,
+        "bars_waited": 2,
+        "low_min": 0.1984
+      }
+    ],
+    "targets_sample": [],
+    "n_stops_listed": 720
+  }
+}

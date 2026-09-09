@@ -94,6 +94,43 @@ def slot_plan(
     return [base] * max(full, 0)
 
 
+def slot_plan_grow150(
+    equity: float,
+    *,
+    grow_max: float = 150.0,
+    peel: float = 100.0,
+    remnant_min: float = 51.0,
+) -> list[float]:
+    """Single growing window up to grow_max; then peel fixed `peel` slots.
+
+    Examples (grow_max=150, peel=100, remnant_min=51):
+      60 → [60]
+      150 → [150]
+      151 → [100, 51]
+      250 → [100, 150]
+      251 → [100, 100, 51]
+    Dust below remnant_min after a peel is merged back into the prior $100
+    (no new window). One symbol may occupy at most one window (enforced by
+    the portfolio router, not here).
+    """
+    eq = max(float(equity), 0.0)
+    if eq <= 0:
+        return []
+    fixed: list[float] = []
+    rem = eq
+    while rem > grow_max + 1e-12:
+        fixed.append(float(peel))
+        rem -= float(peel)
+    if rem >= remnant_min - 1e-9:
+        return fixed + [float(rem)]
+    if rem > 1e-12 and fixed:
+        last = fixed.pop()
+        return fixed + [float(last + rem)]
+    if rem > 1e-12:
+        return [float(rem)]
+    return list(fixed)
+
+
 @dataclass
 class SlotState:
     symbol: str
@@ -149,6 +186,7 @@ def run_dynamic(
     slot_max: float = SLOT_MAX,
     slot_max_at_equity: float = SLOT_MAX_AT_EQUITY,
     remnant_min: float = REMNANT_MIN,
+    slot_mode: str = "linear",
 ) -> tuple[Result, pd.DataFrame]:
     symbols = list(panel.keys())
     n = len(next(iter(panel.values())))
@@ -164,6 +202,18 @@ def run_dynamic(
         slot_max_at_equity=float(slot_max_at_equity),
     )
     remnant = float(remnant_min)
+    mode = str(slot_mode or "linear").strip().lower()
+
+    def make_plan(eq: float) -> list[float]:
+        if mode in {"grow150", "grow_150", "peel100"}:
+            return slot_plan_grow150(eq, grow_max=150.0, peel=100.0, remnant_min=51.0)
+        return slot_plan(eq, remnant_min=remnant, **slot_kw)
+
+    def make_base(eq: float) -> float:
+        plan = make_plan(eq)
+        if not plan:
+            return float(slot_min)
+        return float(plan[-1] if mode.startswith("grow") or mode == "peel100" else slot_size(eq, **slot_kw))
 
     cash = float(initial_equity)
     total_deposited = float(initial_equity)
@@ -263,10 +313,10 @@ def run_dynamic(
                 del slots[sym]
 
         eq_now = mark_equity(mids)
-        plan = slot_plan(eq_now, remnant_min=remnant, **slot_kw)
+        plan = make_plan(eq_now)
         max_slots = max(len(plan), 1)
         peak_slots = max(peak_slots, max_slots)
-        base_now = slot_size(eq_now, **slot_kw)
+        base_now = make_base(eq_now)
 
         if len(slots) >= max_slots:
             idle = [s for s in symbols if s not in slots]
@@ -460,6 +510,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--slot-max", type=float, default=SLOT_MAX)
     p.add_argument("--slot-max-at-equity", type=float, default=SLOT_MAX_AT_EQUITY)
     p.add_argument("--remnant-min", type=float, default=REMNANT_MIN)
+    p.add_argument(
+        "--slot-mode",
+        type=str,
+        default="linear",
+        choices=["linear", "grow150"],
+        help="linear=fixed/scaled slots; grow150=≤150 one window, then peel $100 (remnant≥$51)",
+    )
+    p.add_argument(
+        "--symbols",
+        type=str,
+        default="",
+        help="Comma-separated subset of config symbols (empty=all)",
+    )
     p.add_argument("--out-basename", type=str, default="")
     p.add_argument("--config", type=str, default="config/market_making_5m.yaml")
     p.add_argument("--timeframe", type=str, default="5m")
@@ -473,6 +536,7 @@ def main(argv: list[str] | None = None) -> int:
     slot_max = float(args.slot_max)
     slot_max_at = float(args.slot_max_at_equity)
     remnant_min = float(args.remnant_min)
+    slot_mode = str(args.slot_mode)
 
     if args.out_basename.strip():
         basename = args.out_basename.strip()
@@ -480,7 +544,9 @@ def main(argv: list[str] | None = None) -> int:
         tag = f"{int(start_equity)}"
         if monthly_deposit > 0:
             tag += f"_dca{int(monthly_deposit)}"
-        if abs(slot_min - slot_max) < 1e-9:
+        if slot_mode == "grow150":
+            tag += "_grow150"
+        elif abs(slot_min - slot_max) < 1e-9:
             tag += f"_slot{int(slot_min)}"
         else:
             tag += f"_slot{int(slot_min)}-{int(slot_max)}"
@@ -488,30 +554,41 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = load_mm_config(args.config)
     symbols = list(cfg.symbols)
-    cfg = cfg.model_copy(update={"portfolio_initial_equity": start_equity})
+    if args.symbols.strip():
+        want = [s.strip() for s in args.symbols.split(",") if s.strip()]
+        symbols = [s for s in want if s in symbols] or want
+    cfg = cfg.model_copy(
+        update={"portfolio_initial_equity": start_equity, "symbols": symbols}
+    )
 
     dca_note = (
         f"+${monthly_deposit:.0f}/mo DCA" if monthly_deposit > 0 else "no monthly DCA"
     )
     print(
-        f"Running 5m ${start_equity:.0f} start, slots ${slot_min:.0f}→${slot_max:.0f} "
+        f"Running {args.timeframe} ${start_equity:.0f} start, mode={slot_mode} "
+        f"slots ${slot_min:.0f}→${slot_max:.0f} "
         f"({dca_note}, remnant≥${remnant_min:.0f}) on {len(symbols)} coins "
         f"{args.start}→{args.end_exclusive} ...",
         flush=True,
     )
     for e in (
         start_equity,
-        start_equity * 1.5,
-        start_equity * 2,
-        start_equity * 3,
+        150.0,
+        151.0,
+        250.0,
+        251.0,
         start_equity * 5,
         start_equity * 10,
     ):
-        print(
-            f"  plan@{e:.0f}: size={slot_size(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at):.1f} "
-            f"→ {slot_plan(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at, remnant_min=remnant_min)}",
-            flush=True,
-        )
+        if slot_mode == "grow150":
+            plan_e = slot_plan_grow150(e)
+            print(f"  plan@{e:.0f}: → {plan_e}", flush=True)
+        else:
+            print(
+                f"  plan@{e:.0f}: size={slot_size(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at):.1f} "
+                f"→ {slot_plan(e, start_equity=start_equity, slot_min=slot_min, slot_max=slot_max, slot_max_at_equity=slot_max_at, remnant_min=remnant_min)}",
+                flush=True,
+            )
 
     stamps, panel = load_aligned_panel(
         symbols,
@@ -534,6 +611,7 @@ def main(argv: list[str] | None = None) -> int:
         slot_max=slot_max,
         slot_max_at_equity=slot_max_at,
         remnant_min=remnant_min,
+        slot_mode=slot_mode,
     )
 
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
@@ -566,12 +644,18 @@ def main(argv: list[str] | None = None) -> int:
             "slot_max": slot_max,
             "remnant_min": remnant_min,
             "slot_max_at_equity": slot_max_at,
+            "slot_mode": slot_mode,
             "slot_rule": (
-                f"fixed ${slot_min:.0f} windows; remainder≥${remnant_min:.0f} opens extra"
-                if abs(slot_min - slot_max) < 1e-9
+                "grow150: ≤$150 one window; peel $100 when >$150; "
+                "growing remnant $51–$150; one symbol one window"
+                if slot_mode == "grow150"
                 else (
-                    f"slot scales ${slot_min:.0f}→${slot_max:.0f}; "
-                    f"remainder≥${remnant_min:.0f} opens extra remnant window"
+                    f"fixed ${slot_min:.0f} windows; remainder≥${remnant_min:.0f} opens extra"
+                    if abs(slot_min - slot_max) < 1e-9
+                    else (
+                        f"slot scales ${slot_min:.0f}→${slot_max:.0f}; "
+                        f"remainder≥${remnant_min:.0f} opens extra remnant window"
+                    )
                 )
             ),
             "deposit_rule": (

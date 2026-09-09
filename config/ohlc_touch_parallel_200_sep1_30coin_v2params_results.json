@@ -1,0 +1,471 @@
+{
+  "interpretation_allowed": false,
+  "design": {
+    "mode": "ohlc_touch_parallel_no_timeout",
+    "start_equity": 10000000.0,
+    "per_position_usd": 200.0,
+    "buy_timeout_bars": null,
+    "collision": "none",
+    "trade_window": "2026-09-01->2026-09-02",
+    "warmup_start": "2026-08-17",
+    "n_symbols": 30,
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "BNB/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "DOGE/USDT",
+      "ADA/USDT",
+      "TRX/USDT",
+      "AVAX/USDT",
+      "LINK/USDT",
+      "DOT/USDT",
+      "LTC/USDT",
+      "BCH/USDT",
+      "UNI/USDT",
+      "ATOM/USDT",
+      "NEAR/USDT",
+      "APT/USDT",
+      "ARB/USDT",
+      "OP/USDT",
+      "SUI/USDT",
+      "FIL/USDT",
+      "AAVE/USDT",
+      "INJ/USDT",
+      "ICP/USDT",
+      "SHIB/USDT",
+      "PEPE/USDT",
+      "WLD/USDT",
+      "TIA/USDT",
+      "POL/USDT",
+      "OKB/USDT"
+    ],
+    "fill_model": "low<=bid / high>=ask; no RNG",
+    "params": "config/live_okx_tr_1m_grow150.yaml"
+  },
+  "result": {
+    "n_bars_trade": 1440,
+    "n_buy_orders": 1788,
+    "n_buy_fills": 1771,
+    "n_targets": 1758,
+    "n_pending_eod": 17,
+    "n_open_eod": 13,
+    "n_sell_fills": 1758,
+    "fees_paid": 56.46565750795148,
+    "realized_pnl": -12.216890231500598,
+    "start_equity": 10000000.0,
+    "final_equity": 9999931.430608744,
+    "return_pct": -0.000685693912561014,
+    "cash_end": 9999670.684691196,
+    "inventory_mark_end": 260.7459175471413,
+    "avg_bars_to_buy_fill": 13.504234895539243,
+    "avg_bars_held_to_target": 10.113196814562002,
+    "interpretation_allowed": false,
+    "notes": "OHLC touch; $200/pos; no buy timeout; independent symbols; fee 0.08%/side.",
+    "targets_by_symbol": {
+      "UNI/USDT": 112,
+      "FIL/USDT": 104,
+      "ARB/USDT": 95,
+      "OP/USDT": 91,
+      "DOT/USDT": 91,
+      "TIA/USDT": 86,
+      "WLD/USDT": 83,
+      "NEAR/USDT": 82,
+      "APT/USDT": 78,
+      "INJ/USDT": 74,
+      "PEPE/USDT": 74,
+      "POL/USDT": 73,
+      "AAVE/USDT": 73,
+      "SUI/USDT": 71,
+      "ICP/USDT": 70,
+      "ADA/USDT": 70,
+      "LINK/USDT": 50,
+      "SHIB/USDT": 50,
+      "XRP/USDT": 50,
+      "SOL/USDT": 44,
+      "BCH/USDT": 36,
+      "ATOM/USDT": 35,
+      "AVAX/USDT": 34,
+      "LTC/USDT": 33,
+      "DOGE/USDT": 30,
+      "ETH/USDT": 23,
+      "OKB/USDT": 18,
+      "BTC/USDT": 14,
+      "TRX/USDT": 8,
+      "BNB/USDT": 6
+    },
+    "targets_sample": [
+      {
+        "ts": "2026-09-01 00:03:00+00:00",
+        "symbol": "UNI/USDT",
+        "buy_px": 5.230737055478092,
+        "sell_px": 5.236045009793319,
+        "bars_held": 1,
+        "realized_pnl": 0.02031752847933786
+      },
+      {
+        "ts": "2026-09-01 00:03:00+00:00",
+        "symbol": "ARB/USDT",
+        "buy_px": 0.10881739591651352,
+        "sell_px": 0.10878843854105502,
+        "bars_held": 1,
+        "realized_pnl": -0.005293852917457724
+      },
+      {
+        "ts": "2026-09-01 00:05:00+00:00",
+        "symbol": "OP/USDT",
+        "buy_px": 0.09417345715589867,
+        "sell_px": 0.09412702235455002,
+        "bars_held": 2,
+        "realized_pnl": -0.009896590227760458
+      },
+      {
+        "ts": "2026-09-01 00:05:00+00:00",
+        "symbol": "ARB/USDT",
+        "buy_px": 0.1073498671521122,
+        "sell_px": 0.10785857091376011,
+        "bars_held": 1,
+        "realized_pnl": 0.09431793114821743
+      },
+      {
+        "ts": "2026-09-01 00:10:00+00:00",
+        "symbol": "INJ/USDT",
+        "buy_px": 4.920491879468245,
+        "sell_px": 4.88984253345096,
+        "bars_held": 8,
+        "realized_pnl": -0.12446434930877329
+      },
+      {
+        "ts": "2026-09-01 00:10:00+00:00",
+        "symbol": "OP/USDT",
+        "buy_px": 0.09396445411228586,
+        "sell_px": 0.09406460839052722,
+        "bars_held": 2,
+        "realized_pnl": 0.021293563993058724
+      },
+      {
+        "ts": "2026-09-01 00:11:00+00:00",
+        "symbol": "NEAR/USDT",
+        "buy_px": 1.9323540663162566,
+        "sell_px": 1.9322952499979444,
+        "bars_held": 5,
+        "realized_pnl": -0.0006123510495801301
+      },
+      {
+        "ts": "2026-09-01 00:11:00+00:00",
+        "symbol": "UNI/USDT",
+        "buy_px": 5.27975970760318,
+        "sell_px": 5.283462188237062,
+        "bars_held": 1,
+        "realized_pnl": 0.014139700721335411
+      },
+      {
+        "ts": "2026-09-01 00:13:00+00:00",
+        "symbol": "PEPE/USDT",
+        "buy_px": 3.5626902425228596e-06,
+        "sell_px": 3.5690342941857693e-06,
+        "bars_held": 1,
+        "realized_pnl": 0.03569086730188274
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "INJ/USDT",
+        "buy_px": 4.888469535891225,
+        "sell_px": 4.873834480038815,
+        "bars_held": 5,
+        "realized_pnl": -0.05978372488729569
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "WLD/USDT",
+        "buy_px": 0.3666387950972903,
+        "sell_px": 0.3673194026974729,
+        "bars_held": 2,
+        "realized_pnl": 0.03734472428985296
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "APT/USDT",
+        "buy_px": 0.5341838954249705,
+        "sell_px": 0.5354806754142221,
+        "bars_held": 1,
+        "realized_pnl": 0.04855944539418069
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "ARB/USDT",
+        "buy_px": 0.10979960910187044,
+        "sell_px": 0.11058030497138088,
+        "bars_held": 1,
+        "realized_pnl": 0.1441062980176184
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "OP/USDT",
+        "buy_px": 0.09428653461997574,
+        "sell_px": 0.09453189179216219,
+        "bars_held": 1,
+        "realized_pnl": 0.05216480752342879
+      },
+      {
+        "ts": "2026-09-01 00:16:00+00:00",
+        "symbol": "UNI/USDT",
+        "buy_px": 5.307400701781011,
+        "sell_px": 5.343632940638898,
+        "bars_held": 1,
+        "realized_pnl": 0.13713943549540653
+      },
+      {
+        "ts": "2026-09-01 00:18:00+00:00",
+        "symbol": "UNI/USDT",
+        "buy_px": 5.341460758643258,
+        "sell_px": 5.369604690550973,
+        "bars_held": 1,
+        "realized_pnl": 0.10521096040267135
+      },
+      {
+        "ts": "2026-09-01 00:19:00+00:00",
+        "symbol": "ICP/USDT",
+        "buy_px": 2.416232611734014,
+        "sell_px": 2.419337000136244,
+        "bars_held": 1,
+        "realized_pnl": 0.025869903351916083
+      },
+      {
+        "ts": "2026-09-01 00:20:00+00:00",
+        "symbol": "WLD/USDT",
+        "buy_px": 0.36900358756826684,
+        "sell_px": 0.37011944051699436,
+        "bars_held": 2,
+        "realized_pnl": 0.0606112411041561
+      },
+      {
+        "ts": "2026-09-01 00:21:00+00:00",
+        "symbol": "APT/USDT",
+        "buy_px": 0.5360497608487674,
+        "sell_px": 0.5390855146080131,
+        "bars_held": 3,
+        "realized_pnl": 0.11329553122768038
+      },
+      {
+        "ts": "2026-09-01 00:21:00+00:00",
+        "symbol": "UNI/USDT",
+        "buy_px": 5.379952966769116,
+        "sell_px": 5.383966934452282,
+        "bars_held": 1,
+        "realized_pnl": 0.014924587035382365
+      }
+    ],
+    "open_eod_sample": [
+      {
+        "symbol": "OKB/USDT",
+        "buy_px": 110.17030908143543,
+        "sell_px": 110.66276637890677,
+        "base": 0.1811758311441254,
+        "mid": 110.51,
+        "bars_held": 106
+      },
+      {
+        "symbol": "DOGE/USDT",
+        "buy_px": 0.08165820764000842,
+        "sell_px": 0.0817939261591137,
+        "base": 245.12807942149777,
+        "mid": 0.08168,
+        "bars_held": 8
+      },
+      {
+        "symbol": "ADA/USDT",
+        "buy_px": 0.1965993302171334,
+        "sell_px": 0.1969754667258822,
+        "base": 101.88487009679062,
+        "mid": 0.1967,
+        "bars_held": 8
+      },
+      {
+        "symbol": "LINK/USDT",
+        "buy_px": 11.230935477328618,
+        "sell_px": 11.249706658369416,
+        "base": 1.784598911394664,
+        "mid": 11.234,
+        "bars_held": 8
+      },
+      {
+        "symbol": "BCH/USDT",
+        "buy_px": 246.11489900552115,
+        "sell_px": 246.44432188897594,
+        "base": 0.08166598611678237,
+        "mid": 246.1,
+        "bars_held": 8
+      },
+      {
+        "symbol": "APT/USDT",
+        "buy_px": 0.5461391077406847,
+        "sell_px": 0.5473104567597328,
+        "base": 36.76470588235294,
+        "mid": 0.5464,
+        "bars_held": 8
+      },
+      {
+        "symbol": "OP/USDT",
+        "buy_px": 0.09506971150850342,
+        "sell_px": 0.09540994877849397,
+        "base": 211.595429538722,
+        "mid": 0.09522,
+        "bars_held": 8
+      },
+      {
+        "symbol": "PEPE/USDT",
+        "buy_px": 3.473220547554641e-06,
+        "sell_px": 3.481190569900301e-06,
+        "base": 5772005.772005773,
+        "mid": 3.476e-06,
+        "bars_held": 8
+      },
+      {
+        "symbol": "SUI/USDT",
+        "buy_px": 0.7214757850421183,
+        "sell_px": 0.7229181095094275,
+        "base": 27.89789370902497,
+        "mid": 0.7218,
+        "bars_held": 8
+      },
+      {
+        "symbol": "ETH/USDT",
+        "buy_px": 2419.8824528281107,
+        "sell_px": 2422.0549001379363,
+        "base": 0.008239370182543247,
+        "mid": 2418.71,
+        "bars_held": 8
+      },
+      {
+        "symbol": "INJ/USDT",
+        "buy_px": 4.810229440638108,
+        "sell_px": 4.814814169751101,
+        "base": 4.153686396677051,
+        "mid": 4.808,
+        "bars_held": 8
+      },
+      {
+        "symbol": "WLD/USDT",
+        "buy_px": 0.36466229250750576,
+        "sell_px": 0.3656011003226882,
+        "base": 54.86968449931413,
+        "mid": 0.3648,
+        "bars_held": 8
+      },
+      {
+        "symbol": "ICP/USDT",
+        "buy_px": 2.482872465024478,
+        "sell_px": 2.4835146528767713,
+        "base": 8.130081300813009,
+        "mid": 2.48,
+        "bars_held": 3
+      }
+    ],
+    "pending_eod_sample": [
+      {
+        "symbol": "TRX/USDT",
+        "buy_px": 0.3218484626832118,
+        "bars_waiting": 356,
+        "last_close": 0.32229
+      },
+      {
+        "symbol": "BNB/USDT",
+        "buy_px": 682.0201798999044,
+        "bars_waiting": 310,
+        "last_close": 683.0
+      },
+      {
+        "symbol": "AVAX/USDT",
+        "buy_px": 7.2091378495269,
+        "bars_waiting": 160,
+        "last_close": 7.22
+      },
+      {
+        "symbol": "BTC/USDT",
+        "buy_px": 77322.00440630763,
+        "bars_waiting": 157,
+        "last_close": 77434.7
+      },
+      {
+        "symbol": "XRP/USDT",
+        "buy_px": 1.3496521108060069,
+        "bars_waiting": 76,
+        "last_close": 1.3517
+      },
+      {
+        "symbol": "ATOM/USDT",
+        "buy_px": 1.459300877273414,
+        "bars_waiting": 69,
+        "last_close": 1.462
+      },
+      {
+        "symbol": "TIA/USDT",
+        "buy_px": 0.3543826231598363,
+        "bars_waiting": 45,
+        "last_close": 0.3551
+      },
+      {
+        "symbol": "SHIB/USDT",
+        "buy_px": 5.135293056847427e-06,
+        "bars_waiting": 29,
+        "last_close": 5.143e-06
+      },
+      {
+        "symbol": "NEAR/USDT",
+        "buy_px": 1.883566501808961,
+        "bars_waiting": 23,
+        "last_close": 1.887
+      },
+      {
+        "symbol": "SOL/USDT",
+        "buy_px": 99.85084974499928,
+        "bars_waiting": 11,
+        "last_close": 100.0
+      },
+      {
+        "symbol": "ARB/USDT",
+        "buy_px": 0.11016358639648831,
+        "bars_waiting": 11,
+        "last_close": 0.11043
+      },
+      {
+        "symbol": "DOT/USDT",
+        "buy_px": 0.870660512786215,
+        "bars_waiting": 7,
+        "last_close": 0.8722
+      },
+      {
+        "symbol": "FIL/USDT",
+        "buy_px": 0.7763313292757601,
+        "bars_waiting": 7,
+        "last_close": 0.7794
+      },
+      {
+        "symbol": "LTC/USDT",
+        "buy_px": 49.48593998386073,
+        "bars_waiting": 6,
+        "last_close": 49.56
+      },
+      {
+        "symbol": "POL/USDT",
+        "buy_px": 0.09006953473858557,
+        "bars_waiting": 6,
+        "last_close": 0.09021
+      },
+      {
+        "symbol": "AAVE/USDT",
+        "buy_px": 127.67699112261208,
+        "bars_waiting": 3,
+        "last_close": 127.93
+      },
+      {
+        "symbol": "UNI/USDT",
+        "buy_px": 5.834452969370834,
+        "bars_waiting": 2,
+        "last_close": 5.847
+      }
+    ]
+  }
+}

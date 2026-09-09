@@ -1,0 +1,109 @@
+{
+  "interpretation_allowed": false,
+  "commission_pct": 0.08,
+  "scale_factor": 1.0,
+  "start_equity": 100000.0,
+  "final_equity": 101236.37585787734,
+  "net_profit": 1236.3758578773413,
+  "total_return_pct": 1.2363758578773414,
+  "fees_paid": 423.5207632944906,
+  "n_bars_1m": 11931,
+  "n_entries": 1400,
+  "n_round_trips": 1400,
+  "n_buys": 4274,
+  "n_sells": 3712,
+  "peak_open_total": 7,
+  "layers": {
+    "4h": {
+      "tf": "4h",
+      "notional": 10000.0,
+      "max_slots": 2,
+      "n_entries": 39,
+      "n_round_trips": 39,
+      "n_buys": 94,
+      "n_sells": 84,
+      "n_blocked_busy_symbol": 100,
+      "n_blocked_slot_cap": 0,
+      "fees_paid": 125.19712456174821,
+      "peak_slots": 2
+    },
+    "1h": {
+      "tf": "1h",
+      "notional": 2000.0,
+      "max_slots": 2,
+      "n_entries": 151,
+      "n_round_trips": 151,
+      "n_buys": 422,
+      "n_sells": 368,
+      "n_blocked_busy_symbol": 489,
+      "n_blocked_slot_cap": 0,
+      "fees_paid": 110.14314703616628,
+      "peak_slots": 2
+    },
+    "30m": {
+      "tf": "30m",
+      "notional": 1000.0,
+      "max_slots": 2,
+      "n_entries": 282,
+      "n_round_trips": 282,
+      "n_buys": 900,
+      "n_sells": 769,
+      "n_blocked_busy_symbol": 1080,
+      "n_blocked_slot_cap": 16,
+      "fees_paid": 114.37185641408834,
+      "peak_slots": 2
+    },
+    "1m": {
+      "tf": "1m",
+      "notional": 200.0,
+      "max_slots": 2,
+      "n_entries": 928,
+      "n_round_trips": 928,
+      "n_buys": 2858,
+      "n_sells": 2491,
+      "n_blocked_busy_symbol": 2938,
+      "n_blocked_slot_cap": 10444,
+      "fees_paid": 73.80863528248621,
+      "peak_slots": 2
+    }
+  },
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "BNB/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "DOGE/USDT",
+    "ADA/USDT",
+    "LTC/USDT",
+    "AVAX/USDT",
+    "LINK/USDT",
+    "DOT/USDT",
+    "TRX/USDT"
+  ],
+  "window": {
+    "start": "2026-09-01",
+    "end_exclusive": "2026-09-10"
+  },
+  "full_plan_notionals": {
+    "4h": 10000.0,
+    "1h": 2000.0,
+    "30m": 1000.0,
+    "1m": 200.0
+  },
+  "scaled_notionals": {
+    "4h": 10000.0,
+    "1h": 2000.0,
+    "30m": 1000.0,
+    "1m": 200.0
+  },
+  "conflict_rules": [
+    "one_symbol_one_tf",
+    "priority_4h>1h>30m>1m",
+    "per_tf_max_slots",
+    "shared_cash",
+    "fee_fixed_0.08_no_vip_discount"
+  ],
+  "notes": "Equity=$100000 scale_factor=1.0; notionals 1m/30m/1h/4h=200/1000/2000/10000; fee FIXED 0.08%/side (OKX Regular, no VIP). 30m params wall-matched from 15m lock; 4h from hourly lock. Paper fill_prob=0.25 adverse=0.55. interpretation_allowed=false.",
+  "open_end": []
+}

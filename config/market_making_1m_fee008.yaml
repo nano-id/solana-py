@@ -47,15 +47,15 @@ market_making:
   max_inventory: 1.0
   size_frac_of_max: 0.1
   inventory_halt_frac: 0.8
-  vol_lookback: 11520
+  vol_lookback: 360
   vol_spread_mult: 0.25
   gamma: 0.18
   kappa: 0.8
-  tau_bars: 2880.0
-  ewma_halflife: 5760.0
+  tau_bars: 60.0
+  ewma_halflife: 180.0
   size_eta: 2.5
-  adverse_vol_mult: 0.35
-  liq_bps: 6.0
+  adverse_vol_mult: 0.25
+  liq_bps: 4.0
   use_as_quotes: true
   portfolio_initial_equity: 1000.0
   portfolio_position_frac: 1.0
@@ -67,6 +67,6 @@ market_making:
     seed: 42
     mid0: 100.0
     ann_vol: 0.55
-    fill_prob: 0.25
-    adverse_frac: 0.55
+    fill_prob: 1.0
+    adverse_frac: 0.0
     bars_per_year: 525960.0
