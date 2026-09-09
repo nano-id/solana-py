@@ -1,0 +1,72 @@
+exchange:
+  id: okx
+  fallbacks:
+  - bybit
+  - binance
+  quote: USDT
+  market_type: spot
+storage:
+  root: data
+market_making:
+  symbols:
+  - BTC/USDT
+  - ETH/USDT
+  - BNB/USDT
+  - SOL/USDT
+  - XRP/USDT
+  - DOGE/USDT
+  - ADA/USDT
+  - TRX/USDT
+  - AVAX/USDT
+  - LINK/USDT
+  - DOT/USDT
+  - LTC/USDT
+  - BCH/USDT
+  - UNI/USDT
+  - ATOM/USDT
+  - NEAR/USDT
+  - APT/USDT
+  - ARB/USDT
+  - OP/USDT
+  - SUI/USDT
+  - FIL/USDT
+  - AAVE/USDT
+  - INJ/USDT
+  - ICP/USDT
+  - SHIB/USDT
+  - PEPE/USDT
+  - WLD/USDT
+  - TIA/USDT
+  - POL/USDT
+  - OKB/USDT
+  commission_pct: 0.08
+  edge_buffer_bps: 5.0
+  min_half_spread_bps: 12.0
+  inventory_skew_bps: 8.0
+  target_inventory: 0.0
+  max_inventory: 1.0
+  size_frac_of_max: 0.1
+  inventory_halt_frac: 0.8
+  vol_lookback: 11520
+  vol_spread_mult: 0.25
+  gamma: 0.18
+  kappa: 0.8
+  tau_bars: 2880.0
+  ewma_halflife: 5760.0
+  size_eta: 2.5
+  adverse_vol_mult: 0.35
+  liq_bps: 6.0
+  use_as_quotes: true
+  portfolio_initial_equity: 1000.0
+  portfolio_position_frac: 1.0
+  realtime_poll_sec: 1.0
+  portfolio_flat_eps: 1.0e-08
+  interpretation_allowed: false
+  sim:
+    n_bars: 20000
+    seed: 42
+    mid0: 100.0
+    ann_vol: 0.55
+    fill_prob: 0.25
+    adverse_frac: 0.55
+    bars_per_year: 525960.0

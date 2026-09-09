@@ -1,0 +1,80 @@
+# funding_arb — step 1: live funding / spot / perp / depth collector
+# Reuses pairs_trading data layer (CCXT + binance→bybit→okx geo-fallback).
+
+exchange:
+  id: binance
+  fallbacks:
+    - bybit
+    - okx
+  sandbox: false
+  enable_rate_limit: true
+  quote: USDT
+  market_type: swap
+
+storage:
+  root: data
+
+collector:
+  interval_seconds: 900   # 15 minutes
+  persist_mode: both
+  settlements_per_day: 3.0
+  symbols:
+    - BTC/USDT:USDT
+    - ETH/USDT:USDT
+    - SOL/USDT:USDT
+    - XRP/USDT:USDT
+    - DOGE/USDT:USDT
+    - LTC/USDT:USDT
+    - ADA/USDT:USDT
+    - LINK/USDT:USDT
+    - AVAX/USDT:USDT
+    - SUI/USDT:USDT
+    - APT/USDT:USDT
+    - NEAR/USDT:USDT
+    - ARB/USDT:USDT
+    - OP/USDT:USDT
+    - INJ/USDT:USDT
+    - FIL/USDT:USDT
+    - WLD/USDT:USDT
+    - ORDI/USDT:USDT
+    - BNB/USDT:USDT
+    - DOT/USDT:USDT
+
+depth:
+  book_limit: 20
+  band_frac: 0.002   # 20 bps from mid for depth notional
+  fetch_spot_book: true
+  fetch_perp_book: true
+
+screen:
+  min_depth_usdt: 10000   # drop names thinner than this (Δ-neutral book)
+  rate_col: funding_rate  # next settlement; sett_funding_rate is tie-break only
+  floor_lookback: 12      # snapshots used for floor_persistence
+  prefer_non_floor: true  # real premium ranks above OKX interest floor
+
+entry:
+  mode: paper
+  depth_fraction: 0.05    # size = fraction of depth_usdt
+  max_notional_usdt: 100  # paper / small-capital cap
+  min_notional_usdt: 10
+  require_non_floor: true # do not enter structural interest-floor names first
+  flatten_unpaired: true  # auto-flatten if one leg fills and the other does not
+
+rotation:
+  min_edge_multiple: 3.0  # new |premium| must be ≥ 3× current
+  rotation_cost: 0.004    # assumed ~0.4% round-trip (informational)
+  require_non_floor: true
+
+exit:
+  exit_on_adverse_funding: true  # funding sign no longer pays the side
+  exit_on_floor: true            # interest-floor = premium gone
+
+journal:
+  enabled: true
+  rotation_cost: 0.004   # assumed ~0.4% RT on rotate (gross→net)
+  slippage_cost: 0.0005  # assumed 5 bps per open/close event
+
+observation:
+  min_days: 5            # wall-clock before "ready" (prefer 7–14)
+  min_settlements: 15    # ~5d × 3 settlements/day
+  floor_lookback: 48     # snapshots for floor_persistence once history grows

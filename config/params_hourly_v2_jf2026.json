@@ -1,0 +1,37 @@
+{
+  "label": "hourly_v2_is_202601_202602",
+  "created_at_utc": "2026-09-06T00:56:33.824866+00:00",
+  "is_months": [
+    "2026-01",
+    "2026-02"
+  ],
+  "oos_check": "2026-03",
+  "same_as_v1": true,
+  "params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 48.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.45,
+    "vol_lookback": 192,
+    "ewma_halflife": 96.0,
+    "liq_bps": 6.0,
+    "vol_spread_mult": 0.25,
+    "inventory_halt_frac": 0.8,
+    "commission_pct": 0.07,
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55
+  },
+  "forward_mar_sep_2026": {
+    "start": 1000.0,
+    "final": 1247.7811222365963,
+    "ret_pct": 24.778112223659626,
+    "n_pos": 7,
+    "n_neg": 0
+  },
+  "full_jan_sep_2026": {
+    "start": 1000.0,
+    "final": 1393.8776138860048,
+    "ret_pct": 39.38776138860048
+  }
+}

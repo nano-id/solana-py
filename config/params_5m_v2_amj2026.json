@@ -1,0 +1,277 @@
+{
+  "label": "five_m_v2_is_202604_202606",
+  "created_from": "market_making.calibrate_5m",
+  "timeframe": "5m",
+  "hours_per_bar": 0.08333333333333333,
+  "bars_per_year": 105120.0,
+  "is_months": [
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "oos_check": [
+    "2025-04"
+  ],
+  "same_wall_clock_as_hourly_v2_x12": true,
+  "interpretation_allowed": false,
+  "params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 576.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.45,
+    "vol_lookback": 2304,
+    "ewma_halflife": 1152.0,
+    "liq_bps": 6.0,
+    "vol_spread_mult": 0.25,
+    "inventory_halt_frac": 0.8,
+    "commission_pct": 0.07,
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55,
+    "bars_per_year": 105120.0
+  },
+  "is_stats": {
+    "n": 90.0,
+    "pct_pos": 100.0,
+    "mean_ret": 21.94821543970105,
+    "min_ret": 2.063869160935919,
+    "mean_half": 91.9973385547388
+  },
+  "oos_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 27.80079392787733,
+    "min_ret": 8.479078589833751,
+    "mean_half": 112.52820365990591
+  },
+  "portfolio_oos": {
+    "2025-04": {
+      "start_equity": 1000.0,
+      "final_equity": 2157.7179700088955,
+      "total_return_pct": 115.77179700088955,
+      "n_entries": 350,
+      "n_round_trips": 349,
+      "n_skipped_busy": 22022,
+      "fees_paid": 175.71053952626298,
+      "net_positive": true,
+      "holds": {
+        "n_holds": 1650,
+        "mean_h": 1.3571212121212122,
+        "median_h": 1.0833333333333333,
+        "p25_h": 0.5,
+        "p75_h": 1.9166666666666665
+      }
+    }
+  },
+  "top_candidates": [
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 576.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.94821543970105,
+        "min_ret": 2.063869160935919,
+        "mean_half": 91.9973385547388
+      },
+      "score": [
+        100.0,
+        21.94821543970105,
+        2.063869160935919
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 576.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.94804629029389,
+        "min_ret": 2.063869160935919,
+        "mean_half": 91.99699127589975
+      },
+      "score": [
+        100.0,
+        21.94804629029389,
+        2.063869160935919
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 1.2,
+        "tau_bars": 576.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.85796062493601,
+        "min_ret": 1.9281849256084025,
+        "mean_half": 91.61905743427158
+      },
+      "score": [
+        100.0,
+        21.85796062493601,
+        1.9281849256084025
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 1.2,
+        "tau_bars": 576.0,
+        "size_eta": 2.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.85775074146082,
+        "min_ret": 1.9281849256084025,
+        "mean_half": 91.6186060365021
+      },
+      "score": [
+        100.0,
+        21.85775074146082,
+        1.9281849256084025
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 576.0,
+        "size_eta": 3.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.34334248384348,
+        "min_ret": 1.98146957702249,
+        "mean_half": 91.9973385547388
+      },
+      "score": [
+        100.0,
+        21.34334248384348,
+        1.98146957702249
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 0.8,
+        "tau_bars": 576.0,
+        "size_eta": 3.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.343176778679435,
+        "min_ret": 1.98146957702249,
+        "mean_half": 91.99699127589975
+      },
+      "score": [
+        100.0,
+        21.343176778679435,
+        1.98146957702249
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 1.2,
+        "tau_bars": 576.0,
+        "size_eta": 3.5,
+        "adverse_vol_mult": 0.45,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.23466026203605,
+        "min_ret": 1.8587046906794784,
+        "mean_half": 91.61905743427158
+      },
+      "score": [
+        100.0,
+        21.23466026203605,
+        1.8587046906794784
+      ]
+    },
+    {
+      "params": {
+        "gamma": 0.18,
+        "kappa": 1.2,
+        "tau_bars": 576.0,
+        "size_eta": 3.5,
+        "adverse_vol_mult": 0.35,
+        "vol_lookback": 2304.0,
+        "ewma_halflife": 1152.0,
+        "liq_bps": 6.0,
+        "vol_spread_mult": 0.25,
+        "inventory_halt_frac": 0.8
+      },
+      "is_stats": {
+        "n": 90.0,
+        "pct_pos": 100.0,
+        "mean_ret": 21.234454657975657,
+        "min_ret": 1.8587046906794784,
+        "mean_half": 91.6186060365021
+      },
+      "score": [
+        100.0,
+        21.234454657975657,
+        1.8587046906794784
+      ]
+    }
+  ],
+  "method": "5m candle AS grid (wall-matched to 1h\u00d712); IS=[(2026, 4), (2026, 5), (2026, 6)]; OOS=[(2025, 4)]; select by pct_pos\u2192mean_ret\u2192min_ret. Not a live-edge claim."
+}

@@ -1,0 +1,169 @@
+{
+  "interpretation_allowed": false,
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "BNB/USDT",
+    "SOL/USDT",
+    "XRP/USDT"
+  ],
+  "fee_bps_per_side": 7.000000000000001,
+  "fee_bps_roundtrip": 14.000000000000002,
+  "live": {
+    "n_samples": 1455,
+    "duration_sec": 900.6919419765472,
+    "spread_bps_mean": 0.6145608497767023,
+    "spread_bps_median": 0.7167174341515069,
+    "spread_bps_p90": 1.326699834161314,
+    "by_symbol": {
+      "BNB/USDT": {
+        "n": 291,
+        "spread_bps_mean": 1.3267932879090143,
+        "spread_bps_median": 1.326699834161314,
+        "spread_bps_p90": 1.3288153611058766,
+        "spread_bps_max": 1.3302294645814308,
+        "abs_dmid_bps_mean": 0.7821203589193594,
+        "abs_dmid_bps_p90": 2.652344009018573
+      },
+      "BTC/USDT": {
+        "n": 291,
+        "spread_bps_mean": 0.012744335389934415,
+        "spread_bps_median": 0.012743520716927635,
+        "spread_bps_p90": 0.012748768310363763,
+        "spread_bps_max": 0.01275351598568045,
+        "abs_dmid_bps_mean": 0.1889725622684343,
+        "abs_dmid_bps_p90": 0.5236327210508726
+      },
+      "ETH/USDT": {
+        "n": 291,
+        "spread_bps_mean": 0.04066200086880873,
+        "spread_bps_median": 0.040379486414193706,
+        "spread_bps_p90": 0.0404021631308587,
+        "spread_bps_max": 0.12118984186642594,
+        "abs_dmid_bps_mean": 0.32866456712908787,
+        "abs_dmid_bps_p90": 1.1749392255067628
+      },
+      "SOL/USDT": {
+        "n": 291,
+        "spread_bps_mean": 0.9707963664081981,
+        "spread_bps_median": 0.9708266589005501,
+        "spread_bps_p90": 0.9712981399631786,
+        "spread_bps_max": 0.9715812484824012,
+        "abs_dmid_bps_mean": 0.46534652227924356,
+        "abs_dmid_bps_p90": 1.0683340036651894
+      },
+      "XRP/USDT": {
+        "n": 291,
+        "spread_bps_mean": 0.7218082583075562,
+        "spread_bps_median": 0.7167174341515069,
+        "spread_bps_p90": 0.7174373139146176,
+        "spread_bps_max": 1.4332807797045863,
+        "abs_dmid_bps_mean": 0.3486156792825104,
+        "abs_dmid_bps_p90": 1.4332396956689015
+      }
+    }
+  },
+  "hist_regime": {
+    "window": "2026-09-01\u21922026-09-08",
+    "vol_lookback_bars": 60,
+    "n_flips_total": 685,
+    "n_bars_total": 50100,
+    "flip_gap_min_median": 12.5,
+    "flip_gap_min_mean": 71.35882352941177,
+    "flip_gap_hours_median": 0.20833333333333334,
+    "flip_gap_hours_mean": 1.189313725490196,
+    "pct_gaps_ge_1_day": 0.0,
+    "pct_gaps_ge_6_hours": 3.3823529411764706,
+    "pct_gaps_lt_60_min": 68.23529411764706,
+    "by_symbol": {
+      "BTC/USDT": {
+        "n_bars": 10020,
+        "n_flips": 135,
+        "median_gap_min": 7.0,
+        "mean_gap_hours": 1.2272388059701493,
+        "pct_high_vol": 50.0
+      },
+      "ETH/USDT": {
+        "n_bars": 10020,
+        "n_flips": 140,
+        "median_gap_min": 21.0,
+        "mean_gap_hours": 1.1948441247002397,
+        "pct_high_vol": 50.0
+      },
+      "BNB/USDT": {
+        "n_bars": 10020,
+        "n_flips": 138,
+        "median_gap_min": 9.0,
+        "mean_gap_hours": 1.1603406326034065,
+        "pct_high_vol": 50.0
+      },
+      "SOL/USDT": {
+        "n_bars": 10020,
+        "n_flips": 130,
+        "median_gap_min": 13.0,
+        "mean_gap_hours": 1.2378552971576227,
+        "pct_high_vol": 50.0
+      },
+      "XRP/USDT": {
+        "n_bars": 10020,
+        "n_flips": 142,
+        "median_gap_min": 11.0,
+        "mean_gap_hours": 1.1315602836879433,
+        "pct_high_vol": 50.0
+      }
+    }
+  },
+  "fee_vs_move": {
+    "fee_bps_roundtrip": 14.000000000000002,
+    "abs_1m_bps_median": 2.9090964524260055,
+    "abs_1m_bps_mean": 4.340990234256193,
+    "pct_1m_moves_smaller_than_fee_rt": 95.89046532394086,
+    "by_symbol": {
+      "BTC/USDT": {
+        "n": 10079,
+        "abs_1m_bps_median": 2.061798988343963,
+        "abs_1m_bps_mean": 3.042860088222045,
+        "pct_1m_move_lt_fee_rt": 98.50183549955352
+      },
+      "ETH/USDT": {
+        "n": 10079,
+        "abs_1m_bps_median": 2.7630946660243465,
+        "abs_1m_bps_mean": 3.921039264660231,
+        "pct_1m_move_lt_fee_rt": 97.40053576743725
+      },
+      "BNB/USDT": {
+        "n": 10079,
+        "abs_1m_bps_median": 2.777006387113743,
+        "abs_1m_bps_mean": 3.8375074708640096,
+        "pct_1m_move_lt_fee_rt": 97.430300625062
+      },
+      "SOL/USDT": {
+        "n": 10079,
+        "abs_1m_bps_median": 3.889915394340781,
+        "abs_1m_bps_mean": 5.254990881667203,
+        "pct_1m_move_lt_fee_rt": 94.02718523663061
+      },
+      "XRP/USDT": {
+        "n": 10079,
+        "abs_1m_bps_median": 4.0874718986302465,
+        "abs_1m_bps_mean": 5.648553465867473,
+        "pct_1m_move_lt_fee_rt": 92.09246949102094
+      }
+    }
+  },
+  "as_edge_sample": {
+    "n_quotes_checked": 0,
+    "pct_quoting": 0.0,
+    "net_edge_bps_median": null,
+    "net_edge_bps_mean": null,
+    "pct_net_edge_positive": null,
+    "half_spread_bps_median": null,
+    "required_half_spread_bps": 12.0
+  },
+  "verdicts": {
+    "slippage_majors": "SUPPORTED: live median spread 0.72 bps << fee RT 14.0 bps (majors; slippage/spread drag small vs fee)",
+    "regime_stability": "WEAK: median flip gap 0.21h \u2014 regimes change faster than 'days'",
+    "minute_noise_vs_fee": "NOTE: 96% of |1m mid moves| < fee RT 14.0 bps \u2014 on 1m, fee dominates raw minute noise; edge must come from spread capture, not directional 1m moves"
+  },
+  "notes": "Observation only. Slippage proxied by live BBO spread; regime = 1m vol high/low vs median; no live orders."
+}

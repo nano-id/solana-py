@@ -1,0 +1,5 @@
+
+# VPS private keys — never commit
+config/vps/cursor_bot_ed25519
+config/vps/*.pem
+config/vps/*.key

@@ -1,0 +1,49 @@
+{
+  "locked": true,
+  "interpretation_allowed": false,
+  "created_from": "market_making.calibrate_1m",
+  "timeframe": "1m",
+  "hours_per_bar": 0.016666666666666666,
+  "bars_per_year": 525960.0,
+  "is_window": {
+    "start": "2026-08-25",
+    "end_exclusive": "2026-09-01"
+  },
+  "oos_window": {
+    "start": "2026-09-01",
+    "end_exclusive": "2026-09-07"
+  },
+  "warmup_start": "2026-08-17",
+  "selected_params": {
+    "gamma": 0.18,
+    "kappa": 0.8,
+    "tau_bars": 2880.0,
+    "size_eta": 2.5,
+    "adverse_vol_mult": 0.35,
+    "vol_lookback": 11520.0,
+    "ewma_halflife": 5760.0,
+    "liq_bps": 6.0,
+    "vol_spread_mult": 0.25,
+    "inventory_halt_frac": 0.8
+  },
+  "is_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 36.92185987605667,
+    "min_ret": 4.126346295919413,
+    "mean_half": 133.7763964940647
+  },
+  "oos_stats": {
+    "n": 30.0,
+    "pct_pos": 100.0,
+    "mean_ret": 16.976336852648043,
+    "min_ret": 1.9577665185946609,
+    "mean_half": 101.66746254829903
+  },
+  "method": "1m candle AS grid (wall-matched to 1h\u00d760); IS=2026-08-25\u21922026-09-01; OOS=2026-09-01\u21922026-09-07; select max pct_pos then mean_ret then min_ret",
+  "sim": {
+    "fill_prob": 0.25,
+    "adverse_frac": 0.55,
+    "bars_per_year": 525960.0
+  }
+}
