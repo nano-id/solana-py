@@ -42,14 +42,14 @@ SLOT_MIN = 100.0
 SLOT_MAX = 100.0
 REMNANT_MIN = 100.0
 BAR_SEC = 300
-DECISION_SEC_IN_BAR = 299  # 4m59s within 5m bar; 1m uses 59
+DECISION_SEC_IN_BAR = 299.0  # 4m59s within 5m bar; 1m default 59.2
 
 
-def configure_clock(bar_sec: int, decision_sec: int) -> None:
-    """Set candle decision clock (e.g. 300/299 for 5m, 60/59 for 1m)."""
+def configure_clock(bar_sec: int, decision_sec: float) -> None:
+    """Set candle decision clock (e.g. 300/299 for 5m, 60/59.2 for 1m)."""
     global BAR_SEC, DECISION_SEC_IN_BAR
     BAR_SEC = int(bar_sec)
-    DECISION_SEC_IN_BAR = int(decision_sec)
+    DECISION_SEC_IN_BAR = float(decision_sec)
 
 
 @dataclass
@@ -84,7 +84,7 @@ class EvidenceResult:
     n_symbols: int
     fill_prob: float
     adverse_frac: float
-    decision_sec_in_bar: int
+    decision_sec_in_bar: float
     interpretation_allowed: bool
     evidence_tier: str
     notes: str
@@ -101,8 +101,9 @@ def _bar_id(ts_ms: int) -> int:
     return int(ts_ms // (BAR_SEC * 1000))
 
 
-def _sec_in_bar(ts_ms: int) -> int:
-    return int((ts_ms // 1000) % BAR_SEC)
+def _sec_in_bar(ts_ms: int) -> float:
+    """Fractional second within the current bar (ms-accurate)."""
+    return float((ts_ms / 1000.0) % BAR_SEC)
 
 
 def poll_books_once(
@@ -129,15 +130,20 @@ def iter_candle_decision_books(
     exchange_id: str = "okx",
     poll_interval_sec: float = 1.0,
     duration_sec: float = 900.0,
-    decision_sec: int = DECISION_SEC_IN_BAR,
+    decision_sec: float = DECISION_SEC_IN_BAR,
+    exchange=None,
 ) -> Iterator[tuple[int, dict[str, BookSnapshot]]]:
-    """Yield (bar_id, books) once per 5m bar when wall clock hits ≥ decision_sec."""
-    connected = connect_spot_exchange(exchange_id)
-    exchange = connected.exchange
-    eid = connected.exchange_id
+    """Yield (bar_id, books) once per bar when wall clock hits ≥ decision_sec."""
+    if exchange is None:
+        connected = connect_spot_exchange(exchange_id)
+        exchange = connected.exchange
+        eid = connected.exchange_id
+    else:
+        eid = exchange_id
     t0 = time.time()
     last_decided: int | None = None
     n_polls = 0
+    decision_sec = float(decision_sec)
     print(
         f"Candle clock live: bar={BAR_SEC}s decision_sec>={decision_sec} "
         f"poll={poll_interval_sec}s, duration={duration_sec:.0f}s",
@@ -150,29 +156,32 @@ def iter_candle_decision_books(
         bid = _bar_id(now_ms)
         sec = _sec_in_bar(now_ms)
         n_polls += 1
-        if sec >= decision_sec and bid != last_decided:
+        if sec + 1e-9 >= decision_sec and bid != last_decided:
             books = poll_books_once(exchange, symbols, exchange_id=eid)
             if books:
                 last_decided = bid
                 print(
-                    f"  decision bar_id={bid} sec_in_bar={sec} "
+                    f"  decision bar_id={bid} sec_in_bar={sec:.3f} "
                     f"n_books={len(books)} (polls={n_polls})",
                     flush=True,
                 )
                 yield bid, books
             else:
                 print(
-                    f"  skip empty books at bar_id={bid} sec={sec}",
+                    f"  skip empty books at bar_id={bid} sec={sec:.3f}",
                     flush=True,
                 )
-        # Sleep until near next decision or next poll.
+        # Sleep: fine-grained near decision, coarser otherwise.
         now_ms = int(time.time() * 1000)
         sec = _sec_in_bar(now_ms)
-        if sec < decision_sec:
-            wait = min(poll_interval_sec, max(0.2, decision_sec - sec - 0.05))
+        if sec + 1e-9 < decision_sec:
+            remain = decision_sec - sec
+            if remain <= 1.0:
+                wait = min(0.05, max(0.01, remain * 0.5))
+            else:
+                wait = min(poll_interval_sec, max(0.05, remain - 0.15))
         else:
-            # Past decision window: nap until next bar starts.
-            wait = min(poll_interval_sec, max(0.2, BAR_SEC - sec))
+            wait = min(poll_interval_sec, max(0.05, BAR_SEC - sec))
         if duration_sec > 0:
             rem = duration_sec - (time.time() - t0)
             if rem <= 0:
@@ -546,13 +555,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-symbols", type=int, default=12)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--bar-sec", type=int, default=300)
-    p.add_argument("--decision-sec", type=int, default=299)
+    p.add_argument("--decision-sec", type=float, default=299.0)
     p.add_argument("--warmup-bars", type=int, default=0)
     p.add_argument("--warmup-timeframe", default="")
     p.add_argument("--out-basename", default="live_candle_5m_200_dualslot")
     args = p.parse_args(argv)
 
-    configure_clock(int(args.bar_sec), int(args.decision_sec))
+    configure_clock(int(args.bar_sec), float(args.decision_sec))
     cfg = load_mm_config(args.config)
     symbols = list(cfg.symbols)[: max(2, int(args.max_symbols))]
     cfg = cfg.model_copy(
@@ -603,11 +612,7 @@ def main(argv: list[str] | None = None) -> int:
         seed_hist=seed_hist,
     )
 
-    label = (
-        f"{DECISION_SEC_IN_BAR // 60}m{DECISION_SEC_IN_BAR % 60:02d}s"
-        if BAR_SEC >= 60
-        else f"{DECISION_SEC_IN_BAR}s"
-    )
+    label = f"{float(DECISION_SEC_IN_BAR):.1f}s/{BAR_SEC}"
     out = {
         "interpretation_allowed": False,
         "evidence_tier": result.evidence_tier,
